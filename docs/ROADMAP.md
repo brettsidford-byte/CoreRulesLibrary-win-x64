@@ -11,6 +11,7 @@
 ## 2. Testing and refinement
 
 - Verify all supplied books and representative character exports
+- Integrate the read-only `Spells.dat` and `SpellsU.dat` parser into a spell browser
 - Improve legacy table layout at high display scales
 - Add refresh and document error reporting
 - Confirm image and internal-link compatibility

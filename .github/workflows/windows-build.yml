@@ -30,6 +30,9 @@ jobs:
       - name: Build
         run: dotnet build CoreRulesModern.sln --configuration Release --no-restore
 
+      - name: Check spell parser
+        run: dotnet run --project tests/CoreRulesModern.SpellParserChecks/CoreRulesModern.SpellParserChecks.csproj --configuration Release --no-build
+
       - name: Publish self-contained Windows application
         run: >-
           dotnet publish src/CoreRulesModern/CoreRulesModern.csproj
