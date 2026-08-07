@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -17,9 +19,12 @@ public partial class MainWindow : Window
     private readonly UserSettingsStore _settingsStore = new();
     private readonly ManualCatalogue _manualCatalogue = new();
     private readonly CharacterSheetCatalogue _characterCatalogue = new();
+    private readonly SpellDatabaseParser _spellParser = new();
     private readonly PackagedFontLoader _fontLoader = new();
     private readonly List<HtmlDocumentEntry> _books = [];
     private readonly List<HtmlDocumentEntry> _characters = [];
+    private readonly List<SpellRecord> _spells = [];
+    private readonly List<string> _spellLoadErrors = [];
     private UserSettingsStore.UserSettings _settings = new();
     private HtmlDocumentEntry? _selectedDocument;
     private int _scale = 125;
@@ -37,6 +42,7 @@ public partial class MainWindow : Window
         _settings = _settingsStore.Load();
         _scale = NormaliseScale(_settings.Scale);
         ScaleBox.SelectedIndex = _scale / 25 - 4;
+        SpellScaleBox.SelectedIndex = _scale / 25 - 4;
 
         var libraryPath = _settings.LibraryPath;
         if (string.IsNullOrWhiteSpace(libraryPath) || !_validator.Validate(libraryPath).IsValid)
@@ -44,7 +50,7 @@ public partial class MainWindow : Window
             libraryPath = _locator.FindCandidates().FirstOrDefault(path => _validator.Validate(path).IsValid);
         }
 
-        LoadBooks(libraryPath);
+        LoadLibrary(libraryPath);
         LoadCharacters(_settings.CharacterSheetsPath);
         RefreshNavigation();
     }
@@ -62,7 +68,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        LoadBooks(status.RootPath);
+        LoadLibrary(status.RootPath);
         SaveSettings();
         RefreshNavigation();
     }
@@ -77,13 +83,31 @@ public partial class MainWindow : Window
         RefreshNavigation();
     }
 
-    private void LoadBooks(string? root)
+    private void LoadLibrary(string? root)
     {
         _books.Clear();
+        _spells.Clear();
+        _spellLoadErrors.Clear();
         if (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
         {
             _books.AddRange(_manualCatalogue.Read(root));
+            LoadSpellDatabase(Path.Combine(root, "Database", "Spells.dat"), SpellDatabaseKind.Core);
+            LoadSpellDatabase(Path.Combine(root, "UserDbas", "SpellsU.dat"), SpellDatabaseKind.User);
             _settings = _settings with { LibraryPath = Path.GetFullPath(root) };
+        }
+    }
+
+    private void LoadSpellDatabase(string path, SpellDatabaseKind kind)
+    {
+        if (!File.Exists(path)) return;
+
+        try
+        {
+            _spells.AddRange(_spellParser.Parse(path, kind).Spells);
+        }
+        catch (SpellDatabaseFormatException exception)
+        {
+            _spellLoadErrors.Add($"{Path.GetFileName(path)}: {exception.Message}");
         }
     }
 
@@ -101,11 +125,95 @@ public partial class MainWindow : Window
     {
         var filter = SearchBox.Text.Trim();
         Populate(CharactersRoot, _characters.Where(item => Matches(item, filter)), "Characters", _characters.Count);
-        Populate(BooksRoot, _books.Where(item => Matches(item, filter)), "Books", _books.Count);
+        PopulateBooks(filter);
+        PopulateSpells(filter);
         LibraryPathText.Text = _settings.LibraryPath ?? "Not selected";
         CharacterPathText.Text = _settings.CharacterSheetsPath ?? "Not selected";
-        WelcomeSummary.Text = $"{_books.Count:N0} books and {_characters.Count:N0} character sheets are available.";
-        FooterStatus.Text = $"{_books.Count:N0} books · {_characters.Count:N0} characters";
+        WelcomeSummary.Text = $"{_books.Count:N0} books, {_characters.Count:N0} character sheets and {_spells.Count:N0} spell records are available.";
+        FooterStatus.Text = _spellLoadErrors.Count == 0
+            ? $"{_books.Count:N0} books · {_characters.Count:N0} characters · {_spells.Count:N0} spells"
+            : $"{_books.Count:N0} books · {_characters.Count:N0} characters · {_spells.Count:N0} spells · {_spellLoadErrors.Count} database warning(s)";
+    }
+
+    private void PopulateBooks(string filter)
+    {
+        BooksRoot.Items.Clear();
+        var matchingBooks = _books.Where(item => Matches(item, filter)).ToArray();
+        AddDocumentGroup(
+            BooksRoot,
+            "AD&D 2nd Edition",
+            matchingBooks.Where(item => !item.Title.Equals("Domains of Dread", StringComparison.OrdinalIgnoreCase)),
+            filter.Length > 0);
+        AddDocumentGroup(
+            BooksRoot,
+            "Ravenloft",
+            matchingBooks.Where(item => item.Title.Equals("Domains of Dread", StringComparison.OrdinalIgnoreCase)),
+            filter.Length > 0);
+        BooksRoot.Header = $"Books ({_books.Count:N0})";
+    }
+
+    private void PopulateSpells(string filter)
+    {
+        SpellsRoot.Items.Clear();
+        var matchingSpells = _spells
+            .Where(spell => Matches(spell, filter))
+            .OrderBy(spell => spell.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(spell => spell.DatabaseKind)
+            .ToArray();
+
+        AddSpellCasterGroup(SpellsRoot, "Wizard", matchingSpells.Where(spell => spell.WizardSpell), filter.Length > 0);
+        AddSpellCasterGroup(SpellsRoot, "Priest", matchingSpells.Where(spell => spell.PriestSpell), filter.Length > 0);
+        SpellsRoot.Header = $"Spells ({_spells.Count:N0})";
+    }
+
+    private static void AddDocumentGroup(
+        ItemsControl parent,
+        string title,
+        IEnumerable<HtmlDocumentEntry> entries,
+        bool expand)
+    {
+        var group = new TreeViewItem { Header = title, IsExpanded = expand };
+        foreach (var entry in entries)
+        {
+            group.Items.Add(new TreeViewItem { Header = entry.Title, ToolTip = entry.StartPage, Tag = entry });
+        }
+
+        if (group.Items.Count > 0) parent.Items.Add(group);
+    }
+
+    private static void AddSpellCasterGroup(
+        ItemsControl parent,
+        string title,
+        IEnumerable<SpellRecord> spells,
+        bool expand)
+    {
+        var spellsByLevel = spells.GroupBy(spell => spell.Level).OrderBy(group => group.Key).ToArray();
+        if (spellsByLevel.Length == 0) return;
+
+        var casterGroup = new TreeViewItem { Header = title, IsExpanded = expand };
+        foreach (var levelGroup in spellsByLevel)
+        {
+            var levelNode = new TreeViewItem
+            {
+                Header = $"Level {levelGroup.Key} ({levelGroup.Count():N0})",
+                IsExpanded = expand
+            };
+
+            foreach (var spell in levelGroup)
+            {
+                var source = spell.DatabaseKind == SpellDatabaseKind.Core ? "Core Rules" : "User database";
+                levelNode.Items.Add(new TreeViewItem
+                {
+                    Header = spell.Name,
+                    ToolTip = $"{source} · {title} level {spell.Level}",
+                    Tag = spell
+                });
+            }
+
+            casterGroup.Items.Add(levelNode);
+        }
+
+        parent.Items.Add(casterGroup);
     }
 
     private static void Populate(TreeViewItem root, IEnumerable<HtmlDocumentEntry> entries, string label, int total)
@@ -121,6 +229,12 @@ public partial class MainWindow : Window
     private static bool Matches(HtmlDocumentEntry entry, string filter) =>
         filter.Length == 0 || entry.Title.Contains(filter, StringComparison.CurrentCultureIgnoreCase);
 
+    private static bool Matches(SpellRecord spell, string filter) =>
+        filter.Length == 0 ||
+        spell.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
+        spell.Schools.Any(school => school.Contains(filter, StringComparison.CurrentCultureIgnoreCase)) ||
+        spell.Spheres.Any(sphere => sphere.Contains(filter, StringComparison.CurrentCultureIgnoreCase));
+
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (IsLoaded) RefreshNavigation();
@@ -128,13 +242,22 @@ public partial class MainWindow : Window
 
     private void NavigationTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        if (e.NewValue is TreeViewItem { Tag: HtmlDocumentEntry document }) ShowDocument(document);
+        switch (e.NewValue)
+        {
+            case TreeViewItem { Tag: HtmlDocumentEntry document }:
+                ShowDocument(document);
+                break;
+            case TreeViewItem { Tag: SpellRecord spell }:
+                ShowSpell(spell);
+                break;
+        }
     }
 
     private void ShowDocument(HtmlDocumentEntry document)
     {
         _selectedDocument = document;
         WelcomePanel.Visibility = Visibility.Collapsed;
+        SpellPanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Visible;
         DocumentTitleText.Text = document.Title;
         DocumentPathText.Text = document.StartPage;
@@ -156,17 +279,99 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ShowSpell(SpellRecord spell)
+    {
+        _selectedDocument = null;
+        WelcomePanel.Visibility = Visibility.Collapsed;
+        DocumentPanel.Visibility = Visibility.Collapsed;
+        SpellPanel.Visibility = Visibility.Visible;
+        SpellTitleText.Text = spell.Name;
+        SpellSourceText.Text = spell.DatabaseKind == SpellDatabaseKind.Core
+            ? "Database\\Spells.dat · original Core Rules record"
+            : "UserDbas\\SpellsU.dat · imported or user-created record";
+        SpellBrowser.NavigateToString(CreateSpellHtml(spell));
+        FooterStatus.Text = $"Displaying {spell.Name} · read-only";
+    }
+
+    private string CreateSpellHtml(SpellRecord spell)
+    {
+        var html = new StringBuilder();
+        html.Append("<!doctype html><html><head><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">");
+        html.Append("<style>");
+        html.Append("html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
+        html.Append($"body{{zoom:{_scale}%;margin:22px;color:#17212b;background:#fff;font-size:16px;line-height:1.45}}");
+        html.Append(".badges{margin:0 0 18px}.badge{display:inline-block;background:#8d2f23;color:#fff;padding:4px 9px;margin:0 6px 6px 0;border-radius:3px}");
+        html.Append("table{border-collapse:collapse;width:100%;max-width:980px;margin-bottom:24px}th,td{border-bottom:1px solid #d8d2c6;padding:9px 12px;text-align:left;vertical-align:top}");
+        html.Append("th{width:190px;background:#f4f0e7}.description{max-width:980px;white-space:pre-wrap}.muted{color:#657078;font-style:italic}h2{color:#8d2f23;margin-top:22px}");
+        html.Append("</style></head><body>");
+        html.Append("<div class=\"badges\">");
+        if (spell.WizardSpell) AppendBadge(html, "Wizard");
+        if (spell.PriestSpell) AppendBadge(html, "Priest");
+        AppendBadge(html, $"Level {spell.Level}");
+        AppendBadge(html, spell.DatabaseKind == SpellDatabaseKind.Core ? "Core Rules" : "User database");
+        html.Append("</div><table>");
+        AppendRow(html, "Schools", Join(spell.Schools));
+        AppendRow(html, "Spheres", Join(spell.Spheres));
+        AppendRow(html, "Range", spell.Range);
+        AppendRow(html, "Duration", spell.Duration);
+        AppendRow(html, "Area of effect", spell.AreaOfEffect);
+        AppendRow(html, "Casting time", spell.CastingTime);
+        AppendRow(html, "Components", spell.Components);
+        AppendRow(html, "Saving throw", spell.SavingThrow);
+        AppendRow(html, "Critical", spell.Critical);
+        AppendRow(html, "Knockdown", spell.Knockdown);
+        AppendRow(html, "Sensory", spell.Sensory);
+        AppendRow(html, "Subtlety", spell.Subtlety);
+        AppendRow(html, "Reversible", spell.Reversible ? "Yes" : "No");
+        AppendRow(html, "Never Ban Cantrip", spell.NeverBanCantrip ? "Yes" : "No");
+        if (spell.HelpTopicId > 0) AppendRow(html, "Help topic", spell.HelpTopicId.ToString());
+        html.Append("</table><h2>Description</h2>");
+        if (string.IsNullOrWhiteSpace(spell.Description))
+        {
+            html.Append("<p class=\"muted\">No description is stored in this database record.</p>");
+        }
+        else
+        {
+            html.Append("<div class=\"description\">").Append(Encode(spell.Description)).Append("</div>");
+        }
+
+        html.Append("</body></html>");
+        return html.ToString();
+    }
+
+    private static void AppendBadge(StringBuilder html, string value) =>
+        html.Append("<span class=\"badge\">").Append(Encode(value)).Append("</span>");
+
+    private static void AppendRow(StringBuilder html, string label, string? value)
+    {
+        html.Append("<tr><th>").Append(Encode(label)).Append("</th><td>")
+            .Append(Encode(string.IsNullOrWhiteSpace(value) ? "—" : value))
+            .Append("</td></tr>");
+    }
+
+    private static string Join(IReadOnlyList<string> values) => values.Count == 0 ? "—" : string.Join(", ", values);
+
+    private static string Encode(string value) => WebUtility.HtmlEncode(value);
+
     private void DocumentBrowser_LoadCompleted(object sender, NavigationEventArgs e) => ApplyDisplayStyle();
 
     private void ScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ScaleBox.SelectedItem is ComboBoxItem { Tag: string value } && int.TryParse(value, out var scale))
+        if (sender is ComboBox { SelectedItem: ComboBoxItem { Tag: string value } } && int.TryParse(value, out var scale))
         {
             _scale = scale;
+            var selectedIndex = _scale / 25 - 4;
+            if (ScaleBox.SelectedIndex != selectedIndex) ScaleBox.SelectedIndex = selectedIndex;
+            if (SpellScaleBox.SelectedIndex != selectedIndex) SpellScaleBox.SelectedIndex = selectedIndex;
             if (IsLoaded)
             {
                 SaveSettings();
                 ApplyDisplayStyle();
+                if (SpellPanel.Visibility == Visibility.Visible &&
+                    NavigationTree.SelectedItem is TreeViewItem { Tag: SpellRecord spell })
+                {
+                    SpellBrowser.NavigateToString(CreateSpellHtml(spell));
+                }
             }
         }
     }

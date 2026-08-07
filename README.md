@@ -9,11 +9,12 @@ It does not read or modify Core Rules databases or character `.dat` records. Cha
 
 ## Features
 
-- separate Books and Characters navigation;
+- separate Characters, grouped Books and levelled Spells navigation;
 - automatic discovery of the installed Core Rules WebHelp library;
 - selectable character-sheet folder with recursive HTML discovery;
 - title extraction from each character sheet;
 - filtering by document title;
+- read-only browsing of original and user-added spells by caster type and level;
 - Back, Forward, Start Page and Open in Browser controls;
 - 100–200% display scaling;
 - privately loaded ITC Korinna font applied to books and character sheets;

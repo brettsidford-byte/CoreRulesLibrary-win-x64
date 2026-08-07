@@ -18,7 +18,7 @@
         </StackPanel>
         <StackPanel>
           <TextBlock Text="CORE RULES LIBRARY" Foreground="White" FontSize="23" FontWeight="SemiBold" />
-          <TextBlock Text="Books and character sheets" Foreground="#D9E0E5" FontSize="13" />
+          <TextBlock Text="Books, character sheets and spells" Foreground="#D9E0E5" FontSize="13" />
         </StackPanel>
       </DockPanel>
     </Border>
@@ -33,11 +33,12 @@
       <Border Grid.Column="0" Background="{StaticResource PanelBrush}" Padding="14">
         <DockPanel>
           <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="4,4,4,12" Padding="10,7"
-                   ToolTip="Filter books and characters" TextChanged="SearchBox_TextChanged" />
+                   ToolTip="Filter books, characters and spells" TextChanged="SearchBox_TextChanged" />
           <TreeView x:Name="NavigationTree" FontSize="15"
                     SelectedItemChanged="NavigationTree_SelectedItemChanged">
             <TreeViewItem x:Name="CharactersRoot" Header="Characters" IsExpanded="True" />
             <TreeViewItem x:Name="BooksRoot" Header="Books" IsExpanded="True" />
+            <TreeViewItem x:Name="SpellsRoot" Header="Spells" IsExpanded="True" />
           </TreeView>
         </DockPanel>
       </Border>
@@ -89,13 +90,40 @@
             <WebBrowser x:Name="DocumentBrowser" LoadCompleted="DocumentBrowser_LoadCompleted" />
           </Border>
         </Grid>
+
+        <Grid x:Name="SpellPanel" Visibility="Collapsed" Margin="22">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+              <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <ComboBox x:Name="SpellScaleBox" Width="82" SelectionChanged="ScaleBox_SelectionChanged" Margin="0,0,12,0">
+                <ComboBoxItem Content="100%" Tag="100" />
+                <ComboBoxItem Content="125%" Tag="125" />
+                <ComboBoxItem Content="150%" Tag="150" />
+                <ComboBoxItem Content="175%" Tag="175" />
+                <ComboBoxItem Content="200%" Tag="200" />
+              </ComboBox>
+            </StackPanel>
+            <StackPanel>
+              <TextBlock x:Name="SpellTitleText" FontSize="30" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock x:Name="SpellSourceText" Margin="0,4,0,0" FontSize="12" Foreground="#5B6268"
+                         FontFamily="Consolas" TextWrapping="Wrap" />
+            </StackPanel>
+          </DockPanel>
+          <Border Grid.Row="1" BorderBrush="#C9C4B8" BorderThickness="1" Background="White">
+            <WebBrowser x:Name="SpellBrowser" />
+          </Border>
+        </Grid>
       </Grid>
     </Grid>
 
     <StatusBar Grid.Row="2">
       <StatusBarItem><TextBlock x:Name="FooterStatus" Text="Ready" /></StatusBarItem>
       <Separator />
-      <StatusBarItem><TextBlock Text="Read-only HTML viewer" /></StatusBarItem>
+      <StatusBarItem><TextBlock Text="Read-only library viewer" /></StatusBarItem>
     </StatusBar>
   </Grid>
 </Window>
