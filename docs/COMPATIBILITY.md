@@ -10,6 +10,10 @@
 
 The selected book-library folder must contain `WebHelp/`. Character sheets may be kept in any separate folder; its subfolders are searched recursively.
 
+`Domains of Dread` may be added beneath `WebHelp/` in a folder whose name contains
+`Domains of Dread` (spaces, hyphens and additional suffixes are accepted). Its start
+page may be `index.html`, `index.htm`, `default.html` or `default.htm`.
+
 ## Safety
 
 The viewer does not parse or modify `Chars/*.dat`, `index.chr`, databases, HTML files or help resources. It stores only the selected folder paths and display scale in the user's local application settings.

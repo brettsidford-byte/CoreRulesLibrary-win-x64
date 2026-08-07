@@ -12,7 +12,9 @@ public sealed class CoreRulesInstallationValidator
         var webHelpPath = Path.Combine(root, "WebHelp");
         AddDirectory(items, "HTML book library", webHelpPath);
         var htmlCount = Directory.Exists(webHelpPath)
-            ? Directory.EnumerateFiles(webHelpPath, "*.htm", SearchOption.AllDirectories).Count()
+            ? Directory.EnumerateFiles(webHelpPath, "*", SearchOption.AllDirectories)
+                .Count(path => path.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                               path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
             : 0;
         var valid = htmlCount > 0;
 

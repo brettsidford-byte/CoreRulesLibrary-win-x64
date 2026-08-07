@@ -5,6 +5,14 @@ namespace CoreRulesModern.Services;
 
 public sealed class ManualCatalogue
 {
+    private static readonly string[] StartPageNames =
+    {
+        "index.html",
+        "index.htm",
+        "default.html",
+        "default.htm"
+    };
+
     private static readonly (string Title, string RelativePath)[] Books =
     {
         ("Player's Handbook", @"PHB\DD01405.htm"),
@@ -35,13 +43,50 @@ public sealed class ManualCatalogue
         var webHelpFolder = Path.Combine(installationRoot, "WebHelp");
         if (!Directory.Exists(webHelpFolder)) return Array.Empty<HtmlDocumentEntry>();
 
-        return Books
+        var books = Books
             .Select(book => new HtmlDocumentEntry(
                 book.Title,
                 Path.Combine(webHelpFolder, book.RelativePath),
                 book.RelativePath,
                 HtmlDocumentKind.Book))
             .Where(book => File.Exists(book.StartPage))
-            .ToArray();
+            .ToList();
+
+        var domainsOfDread = FindDomainsOfDread(webHelpFolder);
+        if (domainsOfDread is not null)
+        {
+            books.Add(new HtmlDocumentEntry(
+                "Domains of Dread",
+                domainsOfDread,
+                Path.GetRelativePath(webHelpFolder, domainsOfDread),
+                HtmlDocumentKind.Book));
+        }
+
+        return books.ToArray();
+    }
+
+    private static string? FindDomainsOfDread(string webHelpFolder)
+    {
+        foreach (var folder in Directory.EnumerateDirectories(webHelpFolder))
+        {
+            var normalisedName = new string(Path.GetFileName(folder)
+                .Where(char.IsLetterOrDigit)
+                .Select(char.ToLowerInvariant)
+                .ToArray());
+
+            if (!normalisedName.Contains("domainsofdread") &&
+                !normalisedName.Contains("domainofdread"))
+            {
+                continue;
+            }
+
+            foreach (var startPageName in StartPageNames)
+            {
+                var startPage = Path.Combine(folder, startPageName);
+                if (File.Exists(startPage)) return startPage;
+            }
+        }
+
+        return null;
     }
 }
