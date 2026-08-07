@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace CoreRulesModern.Services;
 
 public sealed class SpellDatabaseFormatException : IOException
