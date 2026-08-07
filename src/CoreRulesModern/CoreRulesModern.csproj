@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>CoreRulesLibrary</AssemblyName>
+    <RootNamespace>CoreRulesModern</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon></ApplicationIcon>
+    <Version>0.2.0</Version>
+    <Authors>Core Rules Modern contributors</Authors>
+    <Description>Modern Windows viewer for Core Rules WebHelp books and exported HTML character sheets.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Assets\Fonts\ITC Korinna Regular.otf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+</Project>

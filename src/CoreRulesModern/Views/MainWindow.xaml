@@ -1,0 +1,101 @@
+<Window x:Class="CoreRulesModern.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Core Rules Library" Width="1280" Height="820"
+        MinWidth="900" MinHeight="600" WindowStartupLocation="CenterScreen">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <Border Grid.Row="0" Background="{StaticResource InkBrush}" Padding="22,14">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <Button Content="Select book library…" Click="SelectLibrary_Click" />
+          <Button Content="Select character sheets…" Click="SelectCharacters_Click" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="CORE RULES LIBRARY" Foreground="White" FontSize="23" FontWeight="SemiBold" />
+          <TextBlock Text="Books and character sheets" Foreground="#D9E0E5" FontSize="13" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="300" MinWidth="220" />
+        <ColumnDefinition Width="5" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <Border Grid.Column="0" Background="{StaticResource PanelBrush}" Padding="14">
+        <DockPanel>
+          <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="4,4,4,12" Padding="10,7"
+                   ToolTip="Filter books and characters" TextChanged="SearchBox_TextChanged" />
+          <TreeView x:Name="NavigationTree" FontSize="15"
+                    SelectedItemChanged="NavigationTree_SelectedItemChanged">
+            <TreeViewItem x:Name="CharactersRoot" Header="Characters" IsExpanded="True" />
+            <TreeViewItem x:Name="BooksRoot" Header="Books" IsExpanded="True" />
+          </TreeView>
+        </DockPanel>
+      </Border>
+
+      <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#C9C4B8" />
+
+      <Grid Grid.Column="2">
+        <StackPanel x:Name="WelcomePanel" Margin="40" MaxWidth="760" HorizontalAlignment="Left">
+          <TextBlock Text="Your AD&amp;D library" FontSize="34" FontWeight="SemiBold" />
+          <TextBlock x:Name="WelcomeSummary" Margin="0,10,0,22" FontSize="17" TextWrapping="Wrap"
+                     Text="Choose the Core Rules folder containing WebHelp, then choose a folder containing exported HTML character sheets." />
+          <Border Background="{StaticResource PanelBrush}" Padding="20" CornerRadius="4">
+            <StackPanel>
+              <TextBlock Text="Book library" FontWeight="SemiBold" FontSize="17" />
+              <TextBlock x:Name="LibraryPathText" Margin="0,3,0,14" TextWrapping="Wrap" FontFamily="Consolas" Text="Not selected" />
+              <TextBlock Text="Character sheets" FontWeight="SemiBold" FontSize="17" />
+              <TextBlock x:Name="CharacterPathText" Margin="0,3,0,0" TextWrapping="Wrap" FontFamily="Consolas" Text="Not selected" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <Grid x:Name="DocumentPanel" Visibility="Collapsed" Margin="22">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+              <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <ComboBox x:Name="ScaleBox" Width="82" SelectionChanged="ScaleBox_SelectionChanged" Margin="0,0,12,0">
+                <ComboBoxItem Content="100%" Tag="100" />
+                <ComboBoxItem Content="125%" Tag="125" />
+                <ComboBoxItem Content="150%" Tag="150" />
+                <ComboBoxItem Content="175%" Tag="175" />
+                <ComboBoxItem Content="200%" Tag="200" />
+              </ComboBox>
+              <Button Content="Back" Click="Back_Click" />
+              <Button Content="Forward" Click="Forward_Click" />
+              <Button Content="Start page" Click="StartPage_Click" />
+              <Button Content="Open in browser…" Click="OpenDocument_Click" />
+            </StackPanel>
+            <StackPanel>
+              <TextBlock x:Name="DocumentTitleText" FontSize="30" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock x:Name="DocumentPathText" Margin="0,4,0,0" FontSize="12" Foreground="#5B6268"
+                         FontFamily="Consolas" TextWrapping="Wrap" />
+            </StackPanel>
+          </DockPanel>
+          <Border Grid.Row="1" BorderBrush="#C9C4B8" BorderThickness="1" Background="White">
+            <WebBrowser x:Name="DocumentBrowser" LoadCompleted="DocumentBrowser_LoadCompleted" />
+          </Border>
+        </Grid>
+      </Grid>
+    </Grid>
+
+    <StatusBar Grid.Row="2">
+      <StatusBarItem><TextBlock x:Name="FooterStatus" Text="Ready" /></StatusBarItem>
+      <Separator />
+      <StatusBarItem><TextBlock Text="Read-only HTML viewer" /></StatusBarItem>
+    </StatusBar>
+  </Grid>
+</Window>

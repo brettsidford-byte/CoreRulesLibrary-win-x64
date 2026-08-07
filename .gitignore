@@ -1,0 +1,24 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+TestResults/
+artifacts/
+publish/
+tmp/
+
+# Never commit original Core Rules content or personal data.
+Database/
+UserDbas/
+Chars/
+Books/
+Bitmaps/
+Help/
+WebHelp/
+*.dat
+*.chr
+*.xpx
+*.hlp
+*.rtf

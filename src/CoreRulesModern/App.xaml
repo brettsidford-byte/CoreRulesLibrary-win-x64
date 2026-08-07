@@ -1,0 +1,25 @@
+<Application x:Class="CoreRulesModern.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="Views/MainWindow.xaml">
+  <Application.Resources>
+    <Color x:Key="InkColour">#17212B</Color>
+    <Color x:Key="PanelColour">#F4F0E7</Color>
+    <Color x:Key="AccentColour">#8D2F23</Color>
+    <SolidColorBrush x:Key="InkBrush" Color="{StaticResource InkColour}" />
+    <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColour}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColour}" />
+    <Style TargetType="Window">
+      <Setter Property="FontFamily" Value="Segoe UI" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+      <Setter Property="Background" Value="#FBFAF6" />
+    </Style>
+    <Style TargetType="Button">
+      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="Margin" Value="4" />
+      <Setter Property="MinHeight" Value="36" />
+    </Style>
+  </Application.Resources>
+</Application>
+
