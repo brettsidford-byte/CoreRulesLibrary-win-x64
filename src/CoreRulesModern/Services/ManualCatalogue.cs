@@ -48,7 +48,8 @@ public sealed class ManualCatalogue
                 book.Title,
                 Path.Combine(webHelpFolder, book.RelativePath),
                 book.RelativePath,
-                HtmlDocumentKind.Book))
+                HtmlDocumentKind.Book,
+                HtmlDocumentCollection.AdndSecondEdition))
             .Where(book => File.Exists(book.StartPage))
             .ToList();
 
@@ -59,7 +60,8 @@ public sealed class ManualCatalogue
                 "Domains of Dread",
                 domainsOfDread,
                 Path.GetRelativePath(webHelpFolder, domainsOfDread),
-                HtmlDocumentKind.Book));
+                HtmlDocumentKind.Book,
+                HtmlDocumentCollection.Ravenloft));
         }
 
         return books.ToArray();

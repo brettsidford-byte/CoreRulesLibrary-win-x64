@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly List<string> _spellLoadErrors = [];
     private UserSettingsStore.UserSettings _settings = new();
     private HtmlDocumentEntry? _selectedDocument;
+    private OnlineResourceEntry? _selectedOnlineResource;
     private int _scale = 125;
 
     public MainWindow()
@@ -127,6 +128,7 @@ public partial class MainWindow : Window
         Populate(CharactersRoot, _characters.Where(item => Matches(item, filter)), "Characters", _characters.Count);
         PopulateBooks(filter);
         PopulateSpells(filter);
+        PopulateOnlineResources(filter);
         LibraryPathText.Text = _settings.LibraryPath ?? "Not selected";
         CharacterPathText.Text = _settings.CharacterSheetsPath ?? "Not selected";
         WelcomeSummary.Text = $"{_books.Count:N0} books, {_characters.Count:N0} character sheets and {_spells.Count:N0} spell records are available.";
@@ -142,12 +144,12 @@ public partial class MainWindow : Window
         AddDocumentGroup(
             BooksRoot,
             "AD&D 2nd Edition",
-            matchingBooks.Where(item => !item.Title.Equals("Domains of Dread", StringComparison.OrdinalIgnoreCase)),
+            matchingBooks.Where(item => item.Collection == HtmlDocumentCollection.AdndSecondEdition),
             filter.Length > 0);
         AddDocumentGroup(
             BooksRoot,
             "Ravenloft",
-            matchingBooks.Where(item => item.Title.Equals("Domains of Dread", StringComparison.OrdinalIgnoreCase)),
+            matchingBooks.Where(item => item.Collection == HtmlDocumentCollection.Ravenloft),
             filter.Length > 0);
         BooksRoot.Header = $"Books ({_books.Count:N0})";
     }
@@ -164,6 +166,21 @@ public partial class MainWindow : Window
         AddSpellCasterGroup(SpellsRoot, "Wizard", matchingSpells.Where(spell => spell.WizardSpell), filter.Length > 0);
         AddSpellCasterGroup(SpellsRoot, "Priest", matchingSpells.Where(spell => spell.PriestSpell), filter.Length > 0);
         SpellsRoot.Header = $"Spells ({_spells.Count:N0})";
+    }
+
+    private void PopulateOnlineResources(string filter)
+    {
+        OnlineResourcesRoot.Items.Clear();
+        var resource = new OnlineResourceEntry("Complete Compendium", "https://www.completecompendium.com/");
+        if (filter.Length == 0 || resource.Title.Contains(filter, StringComparison.CurrentCultureIgnoreCase))
+        {
+            OnlineResourcesRoot.Items.Add(new TreeViewItem
+            {
+                Header = resource.Title,
+                ToolTip = resource.Address,
+                Tag = resource
+            });
+        }
     }
 
     private static void AddDocumentGroup(
@@ -250,15 +267,21 @@ public partial class MainWindow : Window
             case TreeViewItem { Tag: SpellRecord spell }:
                 ShowSpell(spell);
                 break;
+            case TreeViewItem { Tag: OnlineResourceEntry resource }:
+                ShowOnlineResource(resource);
+                break;
         }
     }
 
     private void ShowDocument(HtmlDocumentEntry document)
     {
         _selectedDocument = document;
+        _selectedOnlineResource = null;
         WelcomePanel.Visibility = Visibility.Collapsed;
         SpellPanel.Visibility = Visibility.Collapsed;
+        OnlinePanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Visible;
+        ScaleBox.IsEnabled = true;
         DocumentTitleText.Text = document.Title;
         DocumentPathText.Text = document.StartPage;
 
@@ -282,8 +305,10 @@ public partial class MainWindow : Window
     private void ShowSpell(SpellRecord spell)
     {
         _selectedDocument = null;
+        _selectedOnlineResource = null;
         WelcomePanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Collapsed;
+        OnlinePanel.Visibility = Visibility.Collapsed;
         SpellPanel.Visibility = Visibility.Visible;
         SpellTitleText.Text = spell.Name;
         SpellSourceText.Text = spell.DatabaseKind == SpellDatabaseKind.Core
@@ -291,6 +316,35 @@ public partial class MainWindow : Window
             : "UserDbas\\SpellsU.dat · imported or user-created record";
         SpellBrowser.NavigateToString(CreateSpellHtml(spell));
         FooterStatus.Text = $"Displaying {spell.Name} · read-only";
+    }
+
+    private async void ShowOnlineResource(OnlineResourceEntry resource)
+    {
+        _selectedDocument = null;
+        _selectedOnlineResource = resource;
+        WelcomePanel.Visibility = Visibility.Collapsed;
+        SpellPanel.Visibility = Visibility.Collapsed;
+        DocumentPanel.Visibility = Visibility.Collapsed;
+        OnlinePanel.Visibility = Visibility.Visible;
+        OnlineTitleText.Text = resource.Title;
+        OnlineAddressText.Text = resource.Address;
+
+        try
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            await OnlineBrowser.EnsureCoreWebView2Async();
+            OnlineBrowser.Source = new Uri(resource.Address);
+            FooterStatus.Text = $"Displaying {resource.Title} · online resource";
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"This online resource could not be displayed.\n\n{exception.Message}",
+                "Display online resource", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+        }
     }
 
     private string CreateSpellHtml(SpellRecord spell)
@@ -387,8 +441,7 @@ public partial class MainWindow : Window
             dynamic style = document.createElement("style");
             style.id = "core-rules-library-style";
             style.type = "text/css";
-            style.styleSheet.cssText =
-                "html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif !important;}" +
+            style.styleSheet.cssText = CreateDocumentFontCss() +
                 $"body{{zoom:{_scale}%;margin:18px;}}" +
                 "a{color:#7b241c;} img{max-width:100%;height:auto;}";
             document.getElementsByTagName("head").item(0).appendChild(style);
@@ -397,6 +450,25 @@ public partial class MainWindow : Window
         {
             // Legacy help remains readable if a particular page rejects injected styling.
         }
+    }
+
+    private string CreateDocumentFontCss()
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Book)
+        {
+            return "html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif !important;}";
+        }
+
+        const string headings =
+            "h1,h1 *,h2,h2 *,h3,h3 *,h4,h4 *,h5,h5 *,h6,h6 *," +
+            "font[size='4'],font[size='4'] *,font[size='5'],font[size='5'] *," +
+            "font[size='6'],font[size='6'] *,font[size='7'],font[size='7'] *";
+
+        return _selectedDocument.Collection == HtmlDocumentCollection.Ravenloft
+            ? "html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif !important;}" +
+              $"{headings}{{font-family:'Honda','ITC Honda','ITC Korinna',serif !important;font-weight:normal !important;}}"
+            : "html,body,body *{font-family:'Book Antiqua',Palatino,Georgia,serif !important;}" +
+              $"{headings}{{font-family:'University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
@@ -416,15 +488,45 @@ public partial class MainWindow : Window
 
     private void OpenDocument_Click(object sender, RoutedEventArgs e)
     {
-        if (_selectedDocument is null) return;
+        var address = _selectedDocument?.StartPage;
+        if (address is null) return;
         try
         {
-            Process.Start(new ProcessStartInfo(_selectedDocument.StartPage) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(address) { UseShellExecute = true });
         }
         catch (Exception exception)
         {
             MessageBox.Show(this, $"Windows could not open this document.\n\n{exception.Message}",
                 "Open document", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OnlineBack_Click(object sender, RoutedEventArgs e)
+    {
+        if (OnlineBrowser.CanGoBack) OnlineBrowser.GoBack();
+    }
+
+    private void OnlineForward_Click(object sender, RoutedEventArgs e)
+    {
+        if (OnlineBrowser.CanGoForward) OnlineBrowser.GoForward();
+    }
+
+    private void OnlineStartPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedOnlineResource is not null) OnlineBrowser.Source = new Uri(_selectedOnlineResource.Address);
+    }
+
+    private void OnlineOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedOnlineResource is null) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(_selectedOnlineResource.Address) { UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"Windows could not open this website.\n\n{exception.Message}",
+                "Open online resource", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

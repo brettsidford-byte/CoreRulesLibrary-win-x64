@@ -6,28 +6,31 @@ namespace CoreRulesModern.Services;
 public sealed class PackagedFontLoader : IDisposable
 {
     private const uint PrivateFont = 0x10;
-    private string? _loadedPath;
+    private readonly List<string> _loadedPaths = [];
 
     public bool Load()
     {
-        var path = Path.Combine(
-            AppContext.BaseDirectory,
-            "Assets",
-            "Fonts",
-            "ITC Korinna Regular.otf");
+        var folder = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
+        if (!Directory.Exists(folder)) return false;
 
-        if (!File.Exists(path)) return false;
-        if (AddFontResourceEx(path, PrivateFont, IntPtr.Zero) == 0) return false;
+        foreach (var path in Directory.EnumerateFiles(folder)
+                     .Where(path => path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ||
+                                    path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (AddFontResourceEx(path, PrivateFont, IntPtr.Zero) != 0) _loadedPaths.Add(path);
+        }
 
-        _loadedPath = path;
-        return true;
+        return _loadedPaths.Count > 0;
     }
 
     public void Dispose()
     {
-        if (_loadedPath is null) return;
-        RemoveFontResourceEx(_loadedPath, PrivateFont, IntPtr.Zero);
-        _loadedPath = null;
+        foreach (var path in _loadedPaths)
+        {
+            RemoveFontResourceEx(path, PrivateFont, IntPtr.Zero);
+        }
+
+        _loadedPaths.Clear();
     }
 
     [DllImport("gdi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

@@ -21,3 +21,11 @@ The viewer does not parse or modify `Chars/*.dat`, `index.chr`, databases, HTML 
 ## HTML engine
 
 The current test build uses the Windows HTML browser control for compatibility with the original HTML 3.2 documents. Styling is injected only in memory to apply ITC Korinna and the selected scale; source files remain unchanged.
+
+## Optional local fonts
+
+The application privately loads every `.otf` and `.ttf` file placed in `Assets/Fonts`
+beside the executable. AD&D 2nd Edition books use Book Antiqua body text with
+University Roman Std headings. Ravenloft books use ITC Korinna body text with Honda
+headings. Missing families fall back to commonly available serif fonts; the HTML source
+files are never modified.

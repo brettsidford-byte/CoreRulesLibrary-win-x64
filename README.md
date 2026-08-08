@@ -15,9 +15,11 @@ It does not read or modify Core Rules databases or character `.dat` records. Cha
 - title extraction from each character sheet;
 - filtering by document title;
 - read-only browsing of original and user-added spells by caster type and level;
+- embedded access to the Complete Compendium online resource;
 - Back, Forward, Start Page and Open in Browser controls;
 - 100–200% display scaling;
 - privately loaded ITC Korinna font applied to books and character sheets;
+- collection-specific book typography using optional fonts placed in `Assets/Fonts`;
 - read-only operation and remembered folders;
 - self-contained 64-bit Windows build.
 

@@ -7,14 +7,17 @@
     <RootNamespace>CoreRulesModern</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon></ApplicationIcon>
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <Authors>Core Rules Modern contributors</Authors>
     <Description>Modern Windows viewer for Core Rules WebHelp books and exported HTML character sheets.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="Assets\Fonts\ITC Korinna Regular.otf">
+    <Content Include="Assets\Fonts\*.otf;Assets\Fonts\*.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
   </ItemGroup>
 </Project>
