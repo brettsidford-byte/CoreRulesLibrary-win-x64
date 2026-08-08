@@ -93,7 +93,7 @@ public sealed partial class SpellHelpTopicCatalogue
     private static string ExtractDescription(string body)
     {
         var standardFields = SavingThrowPattern().Match(body);
-        var description = standardFields.Success ? body[standardFields.Index + standardFields.Length..] : body;
+        var description = standardFields.Success ? body[(standardFields.Index + standardFields.Length)..] : body;
         description = ContentsLinkPattern().Replace(description, string.Empty);
         description = FontTagPattern().Replace(description, string.Empty);
         return description.Trim();
@@ -101,7 +101,7 @@ public sealed partial class SpellHelpTopicCatalogue
 
     private static string Ordinal(int value) => value % 100 is 11 or 12 or 13
         ? $"{value}th"
-        : value % 10 switch { 1 => $"{value}st", 2 => $"{value}nd", 3 => $"{value}rd", _ => $"{value}th" };
+        : (value % 10) switch { 1 => $"{value}st", 2 => $"{value}nd", 3 => $"{value}rd", _ => $"{value}th" };
 
     private sealed record TopicReference(string Title, string LocalPath);
 
