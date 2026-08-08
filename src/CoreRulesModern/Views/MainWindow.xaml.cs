@@ -214,9 +214,12 @@ public partial class MainWindow : Window
         var casterGroup = new TreeViewItem { Header = title, IsExpanded = expand };
         foreach (var levelGroup in spellsByLevel)
         {
+            var levelLabel = title == "Priest" && levelGroup.Key == 0
+                ? "Quest Spells"
+                : $"Level {levelGroup.Key}";
             var levelNode = new TreeViewItem
             {
-                Header = $"Level {levelGroup.Key} ({levelGroup.Count():N0})",
+                Header = $"{levelLabel} ({levelGroup.Count():N0})",
                 IsExpanded = expand
             };
 
@@ -226,7 +229,9 @@ public partial class MainWindow : Window
                 levelNode.Items.Add(new TreeViewItem
                 {
                     Header = spell.Name,
-                    ToolTip = $"{source} · {title} level {spell.Level}",
+                    ToolTip = title == "Priest" && spell.Level == 0
+                        ? $"{source} · Priest Quest Spell"
+                        : $"{source} · {title} level {spell.Level}",
                     Tag = spell
                 });
             }

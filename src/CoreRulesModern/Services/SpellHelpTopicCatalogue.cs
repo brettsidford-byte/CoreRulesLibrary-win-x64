@@ -44,7 +44,7 @@ public sealed partial class SpellHelpTopicCatalogue
 
             var separator = title.IndexOf("--", StringComparison.Ordinal);
             if (separator <= 0 || !title.Contains("Spell", StringComparison.OrdinalIgnoreCase)) continue;
-            var spellName = title[..separator].Trim();
+            var spellName = NormaliseSpellName(title[..separator]);
             if (!topics.TryGetValue(spellName, out var entries)) topics[spellName] = entries = [];
             if (!entries.Any(entry => entry.LocalPath.Equals(localPath, StringComparison.OrdinalIgnoreCase)))
             {
@@ -60,7 +60,7 @@ public sealed partial class SpellHelpTopicCatalogue
 
     public SpellHelpTopic? Find(SpellRecord spell)
     {
-        if (_webHelpFolder is null || !_topics.TryGetValue(spell.Name.Trim(), out var candidates)) return null;
+        if (_webHelpFolder is null || !_topics.TryGetValue(NormaliseSpellName(spell.Name), out var candidates)) return null;
         foreach (var candidate in candidates.OrderByDescending(candidate => Score(candidate.Title, spell)))
         {
             var pagePath = Path.GetFullPath(Path.Combine(
@@ -102,6 +102,9 @@ public sealed partial class SpellHelpTopicCatalogue
     private static string Ordinal(int value) => value % 100 is 11 or 12 or 13
         ? $"{value}th"
         : (value % 10) switch { 1 => $"{value}st", 2 => $"{value}nd", 3 => $"{value}rd", _ => $"{value}th" };
+
+    private static string NormaliseSpellName(string value) =>
+        new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 
     private sealed record TopicReference(string Title, string LocalPath);
 
