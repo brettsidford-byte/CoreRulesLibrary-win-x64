@@ -9,6 +9,11 @@ namespace CoreRulesModern.Services;
 public sealed partial class SpellHelpTopicCatalogue
 {
     private static readonly Encoding Windows1252;
+    private static readonly IReadOnlyDictionary<string, string> ReverseSpellNames =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["destroywater"] = "createwater"
+        };
     private string? _webHelpFolder;
     private IReadOnlyDictionary<string, IReadOnlyList<TopicReference>> _topics =
         new Dictionary<string, IReadOnlyList<TopicReference>>(StringComparer.OrdinalIgnoreCase);
@@ -36,19 +41,18 @@ public sealed partial class SpellHelpTopicCatalogue
                 .Cast<Match>()
                 .Select(match => (Name: match.Groups[1].Value, Value: WebUtility.HtmlDecode(match.Groups[2].Value)))
                 .ToArray();
-            var title = parameters.FirstOrDefault(parameter =>
-                parameter.Name.Equals("Name", StringComparison.OrdinalIgnoreCase)).Value;
-            var localPath = parameters.FirstOrDefault(parameter =>
-                parameter.Name.Equals("Local", StringComparison.OrdinalIgnoreCase)).Value;
-            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(localPath)) continue;
-
-            var separator = title.IndexOf("--", StringComparison.Ordinal);
-            if (separator <= 0 || !title.Contains("Spell", StringComparison.OrdinalIgnoreCase)) continue;
-            var spellName = NormaliseSpellName(title[..separator]);
-            if (!topics.TryGetValue(spellName, out var entries)) topics[spellName] = entries = [];
-            if (!entries.Any(entry => entry.LocalPath.Equals(localPath, StringComparison.OrdinalIgnoreCase)))
+            string? currentTitle = null;
+            foreach (var parameter in parameters)
             {
-                entries.Add(new TopicReference(title, localPath));
+                if (parameter.Name.Equals("Name", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentTitle = parameter.Value;
+                    continue;
+                }
+
+                if (!parameter.Name.Equals("Local", StringComparison.OrdinalIgnoreCase) ||
+                    string.IsNullOrWhiteSpace(currentTitle)) continue;
+                AddTopic(topics, currentTitle, parameter.Value);
             }
         }
 
@@ -60,7 +64,23 @@ public sealed partial class SpellHelpTopicCatalogue
 
     public SpellHelpTopic? Find(SpellRecord spell)
     {
-        if (_webHelpFolder is null || !_topics.TryGetValue(NormaliseSpellName(spell.Name), out var candidates)) return null;
+        if (_webHelpFolder is null) return null;
+        var requestedName = NormaliseSpellName(spell.Name);
+        var lookupName = ReverseSpellNames.GetValueOrDefault(requestedName, requestedName);
+        IReadOnlyList<TopicReference> candidates;
+        if (_topics.TryGetValue(lookupName, out var exactCandidates))
+        {
+            candidates = exactCandidates;
+        }
+        else
+        {
+            candidates = _topics
+                .Where(pair => IsCloseName(pair.Key, lookupName))
+                .SelectMany(pair => pair.Value)
+                .ToArray();
+        }
+
+        if (candidates.Count == 0) return null;
         foreach (var candidate in candidates.OrderByDescending(candidate => Score(candidate.Title, spell)))
         {
             var pagePath = Path.GetFullPath(Path.Combine(
@@ -80,6 +100,26 @@ public sealed partial class SpellHelpTopicCatalogue
 
         return null;
     }
+
+    private static void AddTopic(
+        IDictionary<string, List<TopicReference>> topics,
+        string title,
+        string localPath)
+    {
+        var separator = title.IndexOf("--", StringComparison.Ordinal);
+        if (separator <= 0 || !title.Contains("Spell", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(localPath)) return;
+        var spellName = NormaliseSpellName(title[..separator]);
+        if (!topics.TryGetValue(spellName, out var entries)) topics[spellName] = entries = [];
+        if (!entries.Any(entry => entry.LocalPath.Equals(localPath, StringComparison.OrdinalIgnoreCase)))
+        {
+            entries.Add(new TopicReference(title, localPath));
+        }
+    }
+
+    private static bool IsCloseName(string indexedName, string requestedName) =>
+        indexedName.Length >= requestedName.Length + 2 &&
+        indexedName.StartsWith(requestedName, StringComparison.OrdinalIgnoreCase);
 
     private static int Score(string title, SpellRecord spell)
     {
