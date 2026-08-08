@@ -50,3 +50,27 @@ jobs:
           path: artifacts/CoreRulesLibrary-win-x64/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish compact framework-dependent application
+        run: >-
+          dotnet publish src/CoreRulesModern/CoreRulesModern.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained false
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          --output artifacts/CoreRulesLibrary-win-x64-compact
+
+      - name: Remove documentation from compact package
+        shell: pwsh
+        run: Get-ChildItem artifacts/CoreRulesLibrary-win-x64-compact -Filter *.xml | Remove-Item -Force
+
+      - name: Upload compact executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoreRulesLibrary-win-x64-compact
+          path: artifacts/CoreRulesLibrary-win-x64-compact/
+          if-no-files-found: error
+          retention-days: 30

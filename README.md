@@ -33,7 +33,12 @@ The selected folders can be changed at any time. To refresh a modified character
 
 ## Obtaining a build
 
-Open the repository's **Actions** page, select the latest successful **Windows build**, and download the `CoreRulesLibrary-win-x64` artefact. The application is `CoreRulesLibrary.exe`.
+Open the repository's **Actions** page and select the latest successful **Windows build**. Two packages are provided:
+
+- `CoreRulesLibrary-win-x64` is self-contained and requires no separate .NET installation.
+- `CoreRulesLibrary-win-x64-compact` uses the installed .NET 8 Desktop Runtime and is substantially smaller.
+
+The compact package requires the [.NET 8 Desktop Runtime for Windows x64](https://dotnet.microsoft.com/download/dotnet/8.0). The application in either package is `CoreRulesLibrary.exe`.
 
 ## Original content
 
