@@ -277,7 +277,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ShowDocument(HtmlDocumentEntry document)
+    private async void ShowDocument(HtmlDocumentEntry document)
     {
         _selectedDocument = document;
         _selectedOnlineResource = null;
@@ -285,15 +285,29 @@ public partial class MainWindow : Window
         SpellPanel.Visibility = Visibility.Collapsed;
         OnlinePanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Visible;
-        ScaleBox.IsEnabled = true;
         DocumentTitleText.Text = document.Title;
         DocumentPathText.Text = document.StartPage;
 
         try
         {
             Mouse.OverrideCursor = Cursors.Wait;
-            DocumentBrowser.Navigate(new Uri(document.StartPage));
-            FooterStatus.Text = $"Displaying {document.Title} · read-only";
+            if (IsModernHtmlReader(document))
+            {
+                ScaleBox.IsEnabled = false;
+                DocumentBrowser.Visibility = Visibility.Collapsed;
+                ModernDocumentBrowser.Visibility = Visibility.Visible;
+                await ModernDocumentBrowser.EnsureCoreWebView2Async();
+                ModernDocumentBrowser.Source = new Uri(Path.GetFullPath(document.StartPage));
+                FooterStatus.Text = $"Displaying {document.Title} · modern reader · read-only";
+            }
+            else
+            {
+                ScaleBox.IsEnabled = true;
+                ModernDocumentBrowser.Visibility = Visibility.Collapsed;
+                DocumentBrowser.Visibility = Visibility.Visible;
+                DocumentBrowser.Navigate(new Uri(document.StartPage));
+                FooterStatus.Text = $"Displaying {document.Title} · read-only";
+            }
         }
         catch (Exception exception)
         {
@@ -303,6 +317,36 @@ public partial class MainWindow : Window
         finally
         {
             Mouse.OverrideCursor = null;
+        }
+    }
+
+    private static bool IsModernHtmlReader(HtmlDocumentEntry document)
+    {
+        if (document.Kind != HtmlDocumentKind.Book ||
+            document.Collection != HtmlDocumentCollection.Ravenloft ||
+            !File.Exists(document.StartPage))
+        {
+            return false;
+        }
+
+        if (Path.GetFileName(document.StartPage).Contains("reader", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var stream = new FileStream(document.StartPage, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            var buffer = new char[16 * 1024];
+            var length = reader.ReadBlock(buffer, 0, buffer.Length);
+            var openingHtml = new string(buffer, 0, length);
+            return openingHtml.Contains("self-contained reader edition of Domains of Dread", StringComparison.OrdinalIgnoreCase) ||
+                   openingHtml.Contains("Domains of Dread — Ravenloft Campaign Setting", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (IOException)
+        {
+            return false;
         }
     }
 
@@ -503,17 +547,33 @@ public partial class MainWindow : Window
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {
-        if (DocumentBrowser.CanGoBack) DocumentBrowser.GoBack();
+        if (ModernDocumentBrowser.Visibility == Visibility.Visible)
+        {
+            if (ModernDocumentBrowser.CanGoBack) ModernDocumentBrowser.GoBack();
+        }
+        else if (DocumentBrowser.CanGoBack) DocumentBrowser.GoBack();
     }
 
     private void Forward_Click(object sender, RoutedEventArgs e)
     {
-        if (DocumentBrowser.CanGoForward) DocumentBrowser.GoForward();
+        if (ModernDocumentBrowser.Visibility == Visibility.Visible)
+        {
+            if (ModernDocumentBrowser.CanGoForward) ModernDocumentBrowser.GoForward();
+        }
+        else if (DocumentBrowser.CanGoForward) DocumentBrowser.GoForward();
     }
 
     private void StartPage_Click(object sender, RoutedEventArgs e)
     {
-        if (_selectedDocument is not null) DocumentBrowser.Navigate(new Uri(_selectedDocument.StartPage));
+        if (_selectedDocument is null) return;
+        if (ModernDocumentBrowser.Visibility == Visibility.Visible)
+        {
+            ModernDocumentBrowser.Source = new Uri(Path.GetFullPath(_selectedDocument.StartPage));
+        }
+        else
+        {
+            DocumentBrowser.Navigate(new Uri(_selectedDocument.StartPage));
+        }
     }
 
     private void OpenDocument_Click(object sender, RoutedEventArgs e)
