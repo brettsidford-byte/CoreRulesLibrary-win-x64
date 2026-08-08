@@ -114,7 +114,7 @@ public sealed partial class SpellHelpTopicCatalogue
     [GeneratedRegex("<body\\b[^>]*>(.*?)</body>", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex BodyPattern();
 
-    [GeneratedRegex("Saving\\s+Throw\\s*:[^<]*(?:<p[^>]*>\\s*</p>\\s*)+", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    [GeneratedRegex("Saving(?:\\s|<[^>]+>)*Throw(?:\\s|<[^>]+>)*:.*?(?:<p[^>]*>\\s*</p>\\s*){2}", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
     private static partial Regex SavingThrowPattern();
 
     [GeneratedRegex("<a\\s+href=[\"'][^\"']+[\"'][^>]*>\\s*</a>.*?Table of Contents.*$", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
