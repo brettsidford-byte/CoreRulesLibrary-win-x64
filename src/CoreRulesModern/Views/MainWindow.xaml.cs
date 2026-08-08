@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly ManualCatalogue _manualCatalogue = new();
     private readonly CharacterSheetCatalogue _characterCatalogue = new();
     private readonly SpellDatabaseParser _spellParser = new();
+    private readonly SpellHelpTopicCatalogue _spellHelpTopics = new();
     private readonly PackagedFontLoader _fontLoader = new();
     private readonly List<HtmlDocumentEntry> _books = [];
     private readonly List<HtmlDocumentEntry> _characters = [];
@@ -94,6 +95,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
         {
             _books.AddRange(_manualCatalogue.Read(root));
+            _spellHelpTopics.Load(root);
             LoadSpellDatabase(Path.Combine(root, "Database", "Spells.dat"), SpellDatabaseKind.Core);
             LoadSpellDatabase(Path.Combine(root, "UserDbas", "SpellsU.dat"), SpellDatabaseKind.User);
             _settings = _settings with { LibraryPath = Path.GetFullPath(root) };
@@ -351,8 +353,13 @@ public partial class MainWindow : Window
 
     private string CreateSpellHtml(SpellRecord spell)
     {
+        var helpTopic = string.IsNullOrWhiteSpace(spell.Description) ? _spellHelpTopics.Find(spell) : null;
         var html = new StringBuilder();
         html.Append("<!doctype html><html><head><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">");
+        if (helpTopic is not null)
+        {
+            html.Append("<base href=\"").Append(Encode(new Uri(helpTopic.PagePath).AbsoluteUri)).Append("\">");
+        }
         html.Append("<style>");
         html.Append("html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
         html.Append($"body{{zoom:{_spellScale}%;margin:22px;color:#17212b;background:#fff;font-size:16px;line-height:1.45}}");
@@ -384,7 +391,16 @@ public partial class MainWindow : Window
         html.Append("</table><h2>Description</h2>");
         if (string.IsNullOrWhiteSpace(spell.Description))
         {
-            html.Append("<p class=\"muted\">No description is stored in this database record.</p>");
+            if (helpTopic is null)
+            {
+                html.Append("<p class=\"muted\">No description is stored in this database record and no matching WebHelp topic was found.</p>");
+            }
+            else
+            {
+                html.Append("<div class=\"description\">").Append(helpTopic.DescriptionHtml).Append("</div>");
+                html.Append("<p class=\"muted\">Description recovered from ")
+                    .Append(Encode(helpTopic.Title)).Append(".</p>");
+            }
         }
         else
         {
