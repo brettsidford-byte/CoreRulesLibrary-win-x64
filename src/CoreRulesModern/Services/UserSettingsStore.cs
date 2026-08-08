@@ -35,5 +35,6 @@ public sealed class UserSettingsStore
     public sealed record UserSettings(
         string? LibraryPath = null,
         string? CharacterSheetsPath = null,
-        int Scale = 125);
+        int Scale = 125,
+        int SpellScale = 175);
 }

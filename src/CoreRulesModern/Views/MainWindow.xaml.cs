@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private HtmlDocumentEntry? _selectedDocument;
     private OnlineResourceEntry? _selectedOnlineResource;
     private int _scale = 125;
+    private int _spellScale = 175;
 
     public MainWindow()
     {
@@ -41,9 +42,10 @@ public partial class MainWindow : Window
     private void LoadSavedLibrary()
     {
         _settings = _settingsStore.Load();
-        _scale = NormaliseScale(_settings.Scale);
+        _scale = NormaliseScale(_settings.Scale, 125);
+        _spellScale = NormaliseScale(_settings.SpellScale, 175);
         ScaleBox.SelectedIndex = _scale / 25 - 4;
-        SpellScaleBox.SelectedIndex = _scale / 25 - 4;
+        SpellScaleBox.SelectedIndex = _spellScale / 25 - 4;
 
         var libraryPath = _settings.LibraryPath;
         if (string.IsNullOrWhiteSpace(libraryPath) || !_validator.Validate(libraryPath).IsValid)
@@ -353,7 +355,7 @@ public partial class MainWindow : Window
         html.Append("<!doctype html><html><head><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">");
         html.Append("<style>");
         html.Append("html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
-        html.Append($"body{{zoom:{_scale}%;margin:22px;color:#17212b;background:#fff;font-size:16px;line-height:1.45}}");
+        html.Append($"body{{zoom:{_spellScale}%;margin:22px;color:#17212b;background:#fff;font-size:16px;line-height:1.45}}");
         html.Append(".badges{margin:0 0 18px}.badge{display:inline-block;background:#8d2f23;color:#fff;padding:4px 9px;margin:0 6px 6px 0;border-radius:3px}");
         html.Append("table{border-collapse:collapse;width:100%;max-width:980px;margin-bottom:24px}th,td{border-bottom:1px solid #d8d2c6;padding:9px 12px;text-align:left;vertical-align:top}");
         html.Append("th{width:190px;background:#f4f0e7}.description{max-width:980px;white-space:pre-wrap}.muted{color:#657078;font-style:italic}h2{color:#8d2f23;margin-top:22px}");
@@ -399,11 +401,18 @@ public partial class MainWindow : Window
     private static void AppendRow(StringBuilder html, string label, string? value)
     {
         html.Append("<tr><th>").Append(Encode(label)).Append("</th><td>")
-            .Append(Encode(string.IsNullOrWhiteSpace(value) ? "—" : value))
+            .Append(Encode(NormaliseSpellValue(value)))
             .Append("</td></tr>");
     }
 
-    private static string Join(IReadOnlyList<string> values) => values.Count == 0 ? "—" : string.Join(", ", values);
+    private static string Join(IReadOnlyList<string> values) =>
+        values.Count == 0 ? "N/A" : NormaliseSpellValue(string.Join(", ", values));
+
+    private static string NormaliseSpellValue(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) || trimmed is "—" or "â€”" ? "N/A" : trimmed;
+    }
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 
@@ -413,15 +422,20 @@ public partial class MainWindow : Window
     {
         if (sender is ComboBox { SelectedItem: ComboBoxItem { Tag: string value } } && int.TryParse(value, out var scale))
         {
-            _scale = scale;
-            var selectedIndex = _scale / 25 - 4;
-            if (ScaleBox.SelectedIndex != selectedIndex) ScaleBox.SelectedIndex = selectedIndex;
-            if (SpellScaleBox.SelectedIndex != selectedIndex) SpellScaleBox.SelectedIndex = selectedIndex;
+            if (ReferenceEquals(sender, SpellScaleBox))
+            {
+                _spellScale = scale;
+            }
+            else
+            {
+                _scale = scale;
+            }
+
             if (IsLoaded)
             {
                 SaveSettings();
-                ApplyDisplayStyle();
-                if (SpellPanel.Visibility == Visibility.Visible &&
+                if (ReferenceEquals(sender, ScaleBox)) ApplyDisplayStyle();
+                if (ReferenceEquals(sender, SpellScaleBox) && SpellPanel.Visibility == Visibility.Visible &&
                     NavigationTree.SelectedItem is TreeViewItem { Tag: SpellRecord spell })
                 {
                     SpellBrowser.NavigateToString(CreateSpellHtml(spell));
@@ -532,9 +546,10 @@ public partial class MainWindow : Window
 
     private void SaveSettings()
     {
-        _settings = _settings with { Scale = _scale };
+        _settings = _settings with { Scale = _scale, SpellScale = _spellScale };
         _settingsStore.Save(_settings);
     }
 
-    private static int NormaliseScale(int scale) => scale is >= 100 and <= 200 && scale % 25 == 0 ? scale : 125;
+    private static int NormaliseScale(int scale, int fallback) =>
+        scale is >= 100 and <= 300 && scale % 25 == 0 ? scale : fallback;
 }
