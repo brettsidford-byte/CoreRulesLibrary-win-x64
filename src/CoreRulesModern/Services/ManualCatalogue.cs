@@ -1,5 +1,8 @@
 using CoreRulesModern.Models;
 using System.IO;
+using System.Net;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CoreRulesModern.Services;
 
@@ -56,15 +59,42 @@ public sealed class ManualCatalogue
         var domainsOfDread = FindDomainsOfDread(webHelpFolder);
         if (domainsOfDread is not null)
         {
-            books.Add(new HtmlDocumentEntry(
-                "Domains of Dread",
-                domainsOfDread,
-                Path.GetRelativePath(webHelpFolder, domainsOfDread),
-                HtmlDocumentKind.Book,
-                HtmlDocumentCollection.Ravenloft));
+            AddRavenloftBook(books, webHelpFolder, domainsOfDread, "Domains of Dread");
+        }
+
+        var ravenloftFolder = Path.Combine(webHelpFolder, "Ravenloft");
+        if (Directory.Exists(ravenloftFolder))
+        {
+            foreach (var bookFolder in Directory.EnumerateDirectories(ravenloftFolder)
+                         .OrderBy(folder => Path.GetFileName(folder), StringComparer.CurrentCultureIgnoreCase))
+            {
+                var startPage = FindStartPage(bookFolder);
+                if (startPage is not null)
+                {
+                    AddRavenloftBook(books, webHelpFolder, startPage, ReadBookTitle(startPage, bookFolder));
+                }
+            }
         }
 
         return books.ToArray();
+    }
+
+    private static void AddRavenloftBook(
+        ICollection<HtmlDocumentEntry> books,
+        string webHelpFolder,
+        string startPage,
+        string title)
+    {
+        var fullPath = Path.GetFullPath(startPage);
+        if (books.Any(book => Path.GetFullPath(book.StartPage)
+                .Equals(fullPath, StringComparison.OrdinalIgnoreCase))) return;
+
+        books.Add(new HtmlDocumentEntry(
+            title,
+            fullPath,
+            Path.GetRelativePath(webHelpFolder, fullPath),
+            HtmlDocumentKind.Book,
+            HtmlDocumentCollection.Ravenloft));
     }
 
     private static string? FindDomainsOfDread(string webHelpFolder)
@@ -82,13 +112,56 @@ public sealed class ManualCatalogue
                 continue;
             }
 
-            foreach (var startPageName in StartPageNames)
-            {
-                var startPage = Path.Combine(folder, startPageName);
-                if (File.Exists(startPage)) return startPage;
-            }
+            var startPage = FindStartPage(folder);
+            if (startPage is not null) return startPage;
         }
 
         return null;
+    }
+
+    private static string? FindStartPage(string folder)
+    {
+        foreach (var startPageName in StartPageNames)
+        {
+            var startPage = Path.Combine(folder, startPageName);
+            if (File.Exists(startPage)) return startPage;
+        }
+
+        return null;
+    }
+
+    private static string ReadBookTitle(string startPage, string bookFolder)
+    {
+        try
+        {
+            using var stream = new FileStream(startPage, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var buffer = new byte[(int)Math.Min(64 * 1024, stream.Length)];
+            var length = stream.Read(buffer, 0, buffer.Length);
+            string openingHtml;
+            try
+            {
+                openingHtml = new UTF8Encoding(false, true).GetString(buffer, 0, length);
+            }
+            catch (DecoderFallbackException)
+            {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                openingHtml = Encoding.GetEncoding(1252).GetString(buffer, 0, length);
+            }
+
+            var match = Regex.Match(openingHtml, "<title\\b[^>]*>(.*?)</title\\s*>",
+                RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+            if (match.Success)
+            {
+                var title = Regex.Replace(WebUtility.HtmlDecode(match.Groups[1].Value), "<[^>]+>", string.Empty)
+                    .Trim();
+                if (!string.IsNullOrWhiteSpace(title)) return title;
+            }
+        }
+        catch (IOException)
+        {
+            // Use the folder name when a legacy start page cannot be read.
+        }
+
+        return (Path.GetFileName(bookFolder) ?? "Ravenloft Book").Replace('_', ' ').Trim();
     }
 }

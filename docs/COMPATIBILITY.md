@@ -14,13 +14,20 @@ The selected book-library folder must contain `WebHelp/`. Character sheets may b
 `Domains of Dread` (spaces, hyphens and additional suffixes are accepted). Its start
 page may be `index.html`, `index.htm`, `default.html` or `default.htm`.
 
+Additional Ravenloft books are discovered as immediate subfolders of
+`WebHelp/Ravenloft/`. Each book must have its own folder with one of the supported
+start-page names directly inside it. Supporting images, stylesheets and chapter pages
+may use any subfolder layout referenced by the book's HTML.
+
 ## Safety
 
 The viewer does not parse or modify `Chars/*.dat`, `index.chr`, databases, HTML files or help resources. It stores only the selected folder paths and display scale in the user's local application settings.
 
 ## HTML engine
 
-The current test build uses the Windows HTML browser control for compatibility with the original HTML 3.2 documents. Styling is injected only in memory to apply ITC Korinna and the selected scale; source files remain unchanged.
+All books, character sheets, spell descriptions and online resources use Microsoft
+WebView2. Styling is injected only in memory to apply the optional packaged fonts;
+scaling uses WebView2's native zoom and source files remain unchanged.
 
 ## Optional local fonts
 
