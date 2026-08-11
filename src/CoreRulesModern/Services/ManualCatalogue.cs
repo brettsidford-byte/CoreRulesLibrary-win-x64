@@ -1,5 +1,7 @@
 using CoreRulesModern.Models;
 using System.IO;
+using System.Net;
+using System.Text.RegularExpressions;
 
 namespace CoreRulesModern.Services;
 
@@ -10,8 +12,24 @@ public sealed class ManualCatalogue
         "index.html",
         "index.htm",
         "default.html",
-        "default.htm"
+        "default.htm",
+        "reader.html",
+        "reader.htm",
+        "book.html",
+        "book.htm"
     };
+
+    private static readonly IReadOnlyDictionary<string, string> KnownRavenloftBooks =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["domainsofdread"] = "Domains of Dread",
+            ["domainofdread"] = "Domains of Dread",
+            ["feastofgoblyns"] = "Feast of Goblyns",
+            ["rootsofevil"] = "Roots of Evil",
+            ["fromtheshadows"] = "From the Shadows",
+            ["shipofhorror"] = "Ship of Horror",
+            ["touchofdeath"] = "Touch of Death"
+        };
 
     private static readonly (string Title, string RelativePath)[] Books =
     {
@@ -53,42 +71,91 @@ public sealed class ManualCatalogue
             .Where(book => File.Exists(book.StartPage))
             .ToList();
 
-        var domainsOfDread = FindDomainsOfDread(webHelpFolder);
-        if (domainsOfDread is not null)
-        {
-            books.Add(new HtmlDocumentEntry(
-                "Domains of Dread",
-                domainsOfDread,
-                Path.GetRelativePath(webHelpFolder, domainsOfDread),
-                HtmlDocumentKind.Book,
-                HtmlDocumentCollection.Ravenloft));
-        }
+        books.AddRange(FindRavenloftBooks(webHelpFolder));
 
         return books.ToArray();
     }
 
-    private static string? FindDomainsOfDread(string webHelpFolder)
+    private static IEnumerable<HtmlDocumentEntry> FindRavenloftBooks(string webHelpFolder)
     {
-        foreach (var folder in Directory.EnumerateDirectories(webHelpFolder))
+        var discoveredPages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var folder in Directory.EnumerateDirectories(webHelpFolder, "*", SearchOption.AllDirectories))
         {
-            var normalisedName = new string(Path.GetFileName(folder)
-                .Where(char.IsLetterOrDigit)
-                .Select(char.ToLowerInvariant)
-                .ToArray());
+            var normalisedName = NormaliseName(Path.GetFileName(folder));
+            var relativeParts = Path.GetRelativePath(webHelpFolder, folder)
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var isInsideRavenloft = relativeParts
+                .Take(Math.Max(0, relativeParts.Length - 1))
+                .Select(NormaliseName)
+                .Any(part => part is "ravenloft" or "ravenloftbooks");
+            var isKnownBook = KnownRavenloftBooks.TryGetValue(normalisedName, out var knownTitle);
 
-            if (!normalisedName.Contains("domainsofdread") &&
-                !normalisedName.Contains("domainofdread"))
+            if (!isInsideRavenloft && !isKnownBook)
             {
                 continue;
             }
 
-            foreach (var startPageName in StartPageNames)
+            var startPage = FindStartPage(folder);
+            if (startPage is null || !discoveredPages.Add(Path.GetFullPath(startPage))) continue;
+            var title = knownTitle ?? ReadHtmlTitle(startPage) ?? MakeReadableTitle(Path.GetFileName(folder));
+            yield return new HtmlDocumentEntry(
+                title,
+                startPage,
+                Path.GetRelativePath(webHelpFolder, startPage),
+                HtmlDocumentKind.Book,
+                HtmlDocumentCollection.Ravenloft);
+        }
+
+        foreach (var ravenloftRoot in Directory.EnumerateDirectories(webHelpFolder, "*", SearchOption.AllDirectories)
+                     .Where(folder => NormaliseName(Path.GetFileName(folder)) is "ravenloft" or "ravenloftbooks"))
+        {
+            foreach (var page in Directory.EnumerateFiles(ravenloftRoot, "*.htm*", SearchOption.TopDirectoryOnly))
             {
-                var startPage = Path.Combine(folder, startPageName);
-                if (File.Exists(startPage)) return startPage;
+                if (!KnownRavenloftBooks.TryGetValue(NormaliseName(Path.GetFileNameWithoutExtension(page)), out var title) ||
+                    !discoveredPages.Add(Path.GetFullPath(page))) continue;
+                yield return new HtmlDocumentEntry(
+                    title,
+                    page,
+                    Path.GetRelativePath(webHelpFolder, page),
+                    HtmlDocumentKind.Book,
+                    HtmlDocumentCollection.Ravenloft);
             }
+        }
+    }
+
+    private static string? FindStartPage(string folder)
+    {
+        foreach (var name in StartPageNames)
+        {
+            var path = Path.Combine(folder, name);
+            if (File.Exists(path)) return path;
         }
 
         return null;
     }
+
+    private static string? ReadHtmlTitle(string path)
+    {
+        try
+        {
+            using var reader = new StreamReader(path, detectEncodingFromByteOrderMarks: true);
+            var buffer = new char[65536];
+            var length = reader.ReadBlock(buffer, 0, buffer.Length);
+            var match = Regex.Match(new string(buffer, 0, length), @"<title\b[^>]*>(.*?)</title\s*>",
+                RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+            if (!match.Success) return null;
+            var title = WebUtility.HtmlDecode(Regex.Replace(match.Groups[1].Value, "<[^>]+>", string.Empty)).Trim();
+            return title.Length == 0 ? null : title;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    private static string NormaliseName(string value) =>
+        new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+
+    private static string MakeReadableTitle(string value) =>
+        Regex.Replace(value.Replace('_', ' ').Replace('-', ' '), "(?<=[a-z])(?=[A-Z])", " ").Trim();
 }
