@@ -93,10 +93,7 @@
             </StackPanel>
           </DockPanel>
           <Border Grid.Row="1" BorderBrush="#C9C4B8" BorderThickness="1" Background="White">
-            <Grid>
-              <WebBrowser x:Name="DocumentBrowser" LoadCompleted="DocumentBrowser_LoadCompleted" />
-              <wv2:WebView2 x:Name="ModernDocumentBrowser" Visibility="Collapsed" />
-            </Grid>
+            <wv2:WebView2 x:Name="DocumentBrowser" NavigationCompleted="DocumentBrowser_NavigationCompleted" />
           </Border>
         </Grid>
 
@@ -127,7 +124,7 @@
             </StackPanel>
           </DockPanel>
           <Border Grid.Row="1" BorderBrush="#C9C4B8" BorderThickness="1" Background="White">
-            <WebBrowser x:Name="SpellBrowser" />
+            <wv2:WebView2 x:Name="SpellBrowser" />
           </Border>
         </Grid>
 

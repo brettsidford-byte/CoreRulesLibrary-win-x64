@@ -1,6 +1,7 @@
 using CoreRulesModern.Models;
 using System.IO;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CoreRulesModern.Services;
@@ -12,24 +13,8 @@ public sealed class ManualCatalogue
         "index.html",
         "index.htm",
         "default.html",
-        "default.htm",
-        "reader.html",
-        "reader.htm",
-        "book.html",
-        "book.htm"
+        "default.htm"
     };
-
-    private static readonly IReadOnlyDictionary<string, string> KnownRavenloftBooks =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["domainsofdread"] = "Domains of Dread",
-            ["domainofdread"] = "Domains of Dread",
-            ["feastofgoblyns"] = "Feast of Goblyns",
-            ["rootsofevil"] = "Roots of Evil",
-            ["fromtheshadows"] = "From the Shadows",
-            ["shipofhorror"] = "Ship of Horror",
-            ["touchofdeath"] = "Touch of Death"
-        };
 
     private static readonly (string Title, string RelativePath)[] Books =
     {
@@ -71,91 +56,122 @@ public sealed class ManualCatalogue
             .Where(book => File.Exists(book.StartPage))
             .ToList();
 
-        books.AddRange(FindRavenloftBooks(webHelpFolder));
+        var domainsOfDread = FindDomainsOfDread(webHelpFolder);
+        if (domainsOfDread is not null)
+        {
+            AddRavenloftBook(books, webHelpFolder, domainsOfDread, "Domains of Dread");
+        }
+
+        var ravenloftFolder = Path.Combine(webHelpFolder, "Ravenloft");
+        if (Directory.Exists(ravenloftFolder))
+        {
+            foreach (var bookFolder in Directory.EnumerateDirectories(ravenloftFolder)
+                         .OrderBy(folder => Path.GetFileName(folder), StringComparer.CurrentCultureIgnoreCase))
+            {
+                var startPage = FindStartPage(bookFolder);
+                if (startPage is not null)
+                {
+                    AddRavenloftBook(books, webHelpFolder, startPage, ReadBookTitle(startPage, bookFolder));
+                }
+            }
+        }
 
         return books.ToArray();
     }
 
-    private static IEnumerable<HtmlDocumentEntry> FindRavenloftBooks(string webHelpFolder)
+    private static void AddRavenloftBook(
+        ICollection<HtmlDocumentEntry> books,
+        string webHelpFolder,
+        string startPage,
+        string title)
     {
-        var discoveredPages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var folder in Directory.EnumerateDirectories(webHelpFolder, "*", SearchOption.AllDirectories))
-        {
-            var normalisedName = NormaliseName(Path.GetFileName(folder));
-            var relativeParts = Path.GetRelativePath(webHelpFolder, folder)
-                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var isInsideRavenloft = relativeParts
-                .Take(Math.Max(0, relativeParts.Length - 1))
-                .Select(NormaliseName)
-                .Any(part => part is "ravenloft" or "ravenloftbooks");
-            var isKnownBook = KnownRavenloftBooks.TryGetValue(normalisedName, out var knownTitle);
+        var fullPath = Path.GetFullPath(startPage);
+        if (books.Any(book => Path.GetFullPath(book.StartPage)
+                .Equals(fullPath, StringComparison.OrdinalIgnoreCase))) return;
 
-            if (!isInsideRavenloft && !isKnownBook)
+        books.Add(new HtmlDocumentEntry(
+            title,
+            fullPath,
+            Path.GetRelativePath(webHelpFolder, fullPath),
+            HtmlDocumentKind.Book,
+            HtmlDocumentCollection.Ravenloft));
+    }
+
+    private static string? FindDomainsOfDread(string webHelpFolder)
+    {
+        foreach (var folder in Directory.EnumerateDirectories(webHelpFolder))
+        {
+            var normalisedName = new string(Path.GetFileName(folder)
+                .Where(char.IsLetterOrDigit)
+                .Select(char.ToLowerInvariant)
+                .ToArray());
+
+            if (!normalisedName.Contains("domainsofdread") &&
+                !normalisedName.Contains("domainofdread"))
             {
                 continue;
             }
 
             var startPage = FindStartPage(folder);
-            if (startPage is null || !discoveredPages.Add(Path.GetFullPath(startPage))) continue;
-            var title = knownTitle ?? ReadHtmlTitle(startPage) ?? MakeReadableTitle(Path.GetFileName(folder));
-            yield return new HtmlDocumentEntry(
-                title,
-                startPage,
-                Path.GetRelativePath(webHelpFolder, startPage),
-                HtmlDocumentKind.Book,
-                HtmlDocumentCollection.Ravenloft);
-        }
-
-        foreach (var ravenloftRoot in Directory.EnumerateDirectories(webHelpFolder, "*", SearchOption.AllDirectories)
-                     .Where(folder => NormaliseName(Path.GetFileName(folder)) is "ravenloft" or "ravenloftbooks"))
-        {
-            foreach (var page in Directory.EnumerateFiles(ravenloftRoot, "*.htm*", SearchOption.TopDirectoryOnly))
-            {
-                if (!KnownRavenloftBooks.TryGetValue(NormaliseName(Path.GetFileNameWithoutExtension(page)), out var title) ||
-                    !discoveredPages.Add(Path.GetFullPath(page))) continue;
-                yield return new HtmlDocumentEntry(
-                    title,
-                    page,
-                    Path.GetRelativePath(webHelpFolder, page),
-                    HtmlDocumentKind.Book,
-                    HtmlDocumentCollection.Ravenloft);
-            }
-        }
-    }
-
-    private static string? FindStartPage(string folder)
-    {
-        foreach (var name in StartPageNames)
-        {
-            var path = Path.Combine(folder, name);
-            if (File.Exists(path)) return path;
+            if (startPage is not null) return startPage;
         }
 
         return null;
     }
 
-    private static string? ReadHtmlTitle(string path)
+    private static string? FindStartPage(string folder)
+    {
+        foreach (var startPageName in StartPageNames)
+        {
+            var startPage = Path.Combine(folder, startPageName);
+            if (File.Exists(startPage)) return startPage;
+        }
+
+        return Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+            .Where(path => StartPageNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
+            .OrderBy(path => RelativeDepth(folder, path))
+            .ThenBy(path => Array.FindIndex(StartPageNames,
+                name => name.Equals(Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
+            .ThenBy(path => path, StringComparer.CurrentCultureIgnoreCase)
+            .FirstOrDefault();
+    }
+
+    private static int RelativeDepth(string folder, string path) =>
+        Path.GetRelativePath(folder, path).Count(character =>
+            character == Path.DirectorySeparatorChar || character == Path.AltDirectorySeparatorChar);
+
+    private static string ReadBookTitle(string startPage, string bookFolder)
     {
         try
         {
-            using var reader = new StreamReader(path, detectEncodingFromByteOrderMarks: true);
-            var buffer = new char[65536];
-            var length = reader.ReadBlock(buffer, 0, buffer.Length);
-            var match = Regex.Match(new string(buffer, 0, length), @"<title\b[^>]*>(.*?)</title\s*>",
+            using var stream = new FileStream(startPage, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var buffer = new byte[(int)Math.Min(64 * 1024, stream.Length)];
+            var length = stream.Read(buffer, 0, buffer.Length);
+            string openingHtml;
+            try
+            {
+                openingHtml = new UTF8Encoding(false, true).GetString(buffer, 0, length);
+            }
+            catch (DecoderFallbackException)
+            {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                openingHtml = Encoding.GetEncoding(1252).GetString(buffer, 0, length);
+            }
+
+            var match = Regex.Match(openingHtml, "<title\\b[^>]*>(.*?)</title\\s*>",
                 RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
-            if (!match.Success) return null;
-            var title = WebUtility.HtmlDecode(Regex.Replace(match.Groups[1].Value, "<[^>]+>", string.Empty)).Trim();
-            return title.Length == 0 ? null : title;
+            if (match.Success)
+            {
+                var title = Regex.Replace(WebUtility.HtmlDecode(match.Groups[1].Value), "<[^>]+>", string.Empty)
+                    .Trim();
+                if (!string.IsNullOrWhiteSpace(title)) return title;
+            }
         }
         catch (IOException)
         {
-            return null;
+            // Use the folder name when a legacy start page cannot be read.
         }
+
+        return (Path.GetFileName(bookFolder) ?? "Ravenloft Book").Replace('_', ' ').Trim();
     }
-
-    private static string NormaliseName(string value) =>
-        new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
-
-    private static string MakeReadableTitle(string value) =>
-        Regex.Replace(value.Replace('_', ' ').Replace('-', ' '), "(?<=[a-z])(?=[A-Z])", " ").Trim();
 }
