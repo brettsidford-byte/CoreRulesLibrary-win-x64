@@ -522,7 +522,7 @@ public partial class MainWindow : Window
             style.type = "text/css";
             style.styleSheet.cssText = CreateDocumentFontCss() +
                 $"body{{zoom:{_scale}%;margin:18px;}}" +
-                "a{color:#7b241c;} img{max-width:100%;height:auto;}";
+                "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
             document.getElementsByTagName("head").item(0).appendChild(style);
         }
         catch
@@ -538,16 +538,22 @@ public partial class MainWindow : Window
             return "html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif !important;}";
         }
 
-        const string headings =
+        // Core Rules and early Ravenloft HTML use both absolute FONT sizes
+        // (4-7) and relative sizes (+1 to +4) instead of semantic headings.
+        // Matching size, rather than colour alone, avoids treating the red
+        // chapter links in contents pages as headings.
+        const string legacyHeadings =
             "h1,h1 *,h2,h2 *,h3,h3 *,h4,h4 *,h5,h5 *,h6,h6 *," +
-            "font[size='4'],font[size='4'] *,font[size='5'],font[size='5'] *," +
-            "font[size='6'],font[size='6'] *,font[size='7'],font[size='7'] *";
+            "font[size='+1'],font[size='+1'] *,font[size='4'],font[size='4'] *," +
+            "font[size='+2'],font[size='+2'] *,font[size='5'],font[size='5'] *," +
+            "font[size='+3'],font[size='+3'] *,font[size='6'],font[size='6'] *," +
+            "font[size='+4'],font[size='+4'] *,font[size='7'],font[size='7'] *";
 
         return _selectedDocument.Collection == HtmlDocumentCollection.Ravenloft
             ? "html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif !important;}" +
-              $"{headings}{{font-family:'Honda','ITC Honda','ITC Korinna',serif !important;font-weight:normal !important;}}"
+              $"{legacyHeadings}{{font-family:'Honda','ITC Honda','ITC Korinna',serif !important;font-weight:normal !important;}}"
             : "html,body,body *{font-family:'Book Antiqua',Palatino,Georgia,serif !important;}" +
-              $"{headings}{{font-family:'University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
+              $"{legacyHeadings}{{font-family:'University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
