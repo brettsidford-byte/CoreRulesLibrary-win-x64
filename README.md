@@ -31,7 +31,8 @@ It does not read or modify Core Rules databases or character `.dat` records. Cha
 3. Choose a book or character from the left panel.
 
 Additional Ravenloft books belong in separate folders beneath `WebHelp/Ravenloft`.
-Each book folder must contain `index.htm`, `index.html`, `default.htm` or `default.html`.
+Each book folder must contain `index.htm`, `index.html`, `default.htm` or `default.html`;
+the start page may also be inside one additional extracted website folder.
 The displayed title comes from the start page's `<title>` element, falling back to the
 folder name when necessary.
 

@@ -127,8 +127,18 @@ public sealed class ManualCatalogue
             if (File.Exists(startPage)) return startPage;
         }
 
-        return null;
+        return Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+            .Where(path => StartPageNames.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase))
+            .OrderBy(path => RelativeDepth(folder, path))
+            .ThenBy(path => Array.FindIndex(StartPageNames,
+                name => name.Equals(Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
+            .ThenBy(path => path, StringComparer.CurrentCultureIgnoreCase)
+            .FirstOrDefault();
     }
+
+    private static int RelativeDepth(string folder, string path) =>
+        Path.GetRelativePath(folder, path).Count(character =>
+            character == Path.DirectorySeparatorChar || character == Path.AltDirectorySeparatorChar);
 
     private static string ReadBookTitle(string startPage, string bookFolder)
     {

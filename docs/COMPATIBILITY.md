@@ -15,9 +15,10 @@ The selected book-library folder must contain `WebHelp/`. Character sheets may b
 page may be `index.html`, `index.htm`, `default.html` or `default.htm`.
 
 Additional Ravenloft books are discovered as immediate subfolders of
-`WebHelp/Ravenloft/`. Each book must have its own folder with one of the supported
-start-page names directly inside it. Supporting images, stylesheets and chapter pages
-may use any subfolder layout referenced by the book's HTML.
+`WebHelp/Ravenloft/`. Each book must have its own folder containing one of the supported
+start-page names. Nested extracted website folders are searched recursively; when more
+than one start page exists, the nearest one to the book folder is used. Supporting
+images, stylesheets and chapter pages may use any layout referenced by the book's HTML.
 
 ## Safety
 
