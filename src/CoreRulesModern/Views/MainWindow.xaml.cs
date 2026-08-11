@@ -2,12 +2,13 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Navigation;
 using CoreRulesModern.Models;
 using CoreRulesModern.Services;
+using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
 
 namespace CoreRulesModern.Views;
@@ -296,23 +297,11 @@ public partial class MainWindow : Window
         try
         {
             Mouse.OverrideCursor = Cursors.Wait;
-            if (IsModernHtmlReader(document))
-            {
-                ScaleBox.IsEnabled = false;
-                DocumentBrowser.Visibility = Visibility.Collapsed;
-                ModernDocumentBrowser.Visibility = Visibility.Visible;
-                await ModernDocumentBrowser.EnsureCoreWebView2Async();
-                ModernDocumentBrowser.Source = new Uri(Path.GetFullPath(document.StartPage));
-                FooterStatus.Text = $"Displaying {document.Title} · modern reader · read-only";
-            }
-            else
-            {
-                ScaleBox.IsEnabled = true;
-                ModernDocumentBrowser.Visibility = Visibility.Collapsed;
-                DocumentBrowser.Visibility = Visibility.Visible;
-                DocumentBrowser.Navigate(new Uri(document.StartPage));
-                FooterStatus.Text = $"Displaying {document.Title} · read-only";
-            }
+            ScaleBox.IsEnabled = true;
+            await DocumentBrowser.EnsureCoreWebView2Async();
+            ApplyDocumentScale();
+            DocumentBrowser.Source = new Uri(Path.GetFullPath(document.StartPage));
+            FooterStatus.Text = $"Displaying {document.Title} · WebView2 · read-only";
         }
         catch (Exception exception)
         {
@@ -325,37 +314,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private static bool IsModernHtmlReader(HtmlDocumentEntry document)
-    {
-        if (document.Kind != HtmlDocumentKind.Book ||
-            document.Collection != HtmlDocumentCollection.Ravenloft ||
-            !File.Exists(document.StartPage))
-        {
-            return false;
-        }
-
-        if (Path.GetFileName(document.StartPage).Contains("reader", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        try
-        {
-            using var stream = new FileStream(document.StartPage, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-            var buffer = new char[16 * 1024];
-            var length = reader.ReadBlock(buffer, 0, buffer.Length);
-            var openingHtml = new string(buffer, 0, length);
-            return openingHtml.Contains("self-contained reader edition of Domains of Dread", StringComparison.OrdinalIgnoreCase) ||
-                   openingHtml.Contains("Domains of Dread — Ravenloft Campaign Setting", StringComparison.OrdinalIgnoreCase);
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-    }
-
-    private void ShowSpell(SpellRecord spell)
+    private async void ShowSpell(SpellRecord spell)
     {
         _selectedDocument = null;
         _selectedOnlineResource = null;
@@ -367,7 +326,17 @@ public partial class MainWindow : Window
         SpellSourceText.Text = spell.DatabaseKind == SpellDatabaseKind.Core
             ? "Database\\Spells.dat · original Core Rules record"
             : "UserDbas\\SpellsU.dat · imported or user-created record";
-        SpellBrowser.NavigateToString(CreateSpellHtml(spell));
+        try
+        {
+            await SpellBrowser.EnsureCoreWebView2Async();
+            ApplySpellScale();
+            SpellBrowser.NavigateToString(CreateSpellHtml(spell));
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"This spell could not be displayed.\n\n{exception.Message}",
+                "Display spell", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         FooterStatus.Text = $"Displaying {spell.Name} · read-only";
     }
 
@@ -409,9 +378,9 @@ public partial class MainWindow : Window
         {
             html.Append("<base href=\"").Append(Encode(new Uri(helpTopic.PagePath).AbsoluteUri)).Append("\">");
         }
-        html.Append("<style>");
-        html.Append("html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
-        html.Append($"body{{zoom:{_spellScale}%;margin:22px;color:#17212b;background:#fff;font-size:16px;line-height:1.45}}");
+        html.Append("<style>").Append(CreatePackagedFontCss());
+        html.Append("html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
+        html.Append("body{margin:22px;color:#17212b;background:#fff;font-size:16px;line-height:1.45}");
         html.Append(".badges{margin:0 0 18px}.badge{display:inline-block;background:#8d2f23;color:#fff;padding:4px 9px;margin:0 6px 6px 0;border-radius:3px}");
         html.Append("table{border-collapse:collapse;width:100%;max-width:980px;margin-bottom:24px}th,td{border-bottom:1px solid #d8d2c6;padding:9px 12px;text-align:left;vertical-align:top}");
         html.Append("th{width:190px;background:#f4f0e7}.description{max-width:980px;white-space:pre-wrap}.muted{color:#657078;font-style:italic}h2{color:#8d2f23;margin-top:22px}");
@@ -481,7 +450,14 @@ public partial class MainWindow : Window
 
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 
-    private void DocumentBrowser_LoadCompleted(object sender, NavigationEventArgs e) => ApplyDisplayStyle();
+    private async void DocumentBrowser_NavigationCompleted(
+        object? sender,
+        CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (!e.IsSuccess) return;
+        ApplyDocumentScale();
+        await ApplyDocumentStyleAsync();
+    }
 
     private void ScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -499,43 +475,77 @@ public partial class MainWindow : Window
             if (IsLoaded)
             {
                 SaveSettings();
-                if (ReferenceEquals(sender, ScaleBox)) ApplyDisplayStyle();
-                if (ReferenceEquals(sender, SpellScaleBox) && SpellPanel.Visibility == Visibility.Visible &&
-                    NavigationTree.SelectedItem is TreeViewItem { Tag: SpellRecord spell })
-                {
-                    SpellBrowser.NavigateToString(CreateSpellHtml(spell));
-                }
+                if (ReferenceEquals(sender, ScaleBox)) ApplyDocumentScale();
+                if (ReferenceEquals(sender, SpellScaleBox)) ApplySpellScale();
             }
         }
     }
 
-    private void ApplyDisplayStyle()
+    private void ApplyDocumentScale()
     {
+        if (DocumentBrowser.CoreWebView2 is not null) DocumentBrowser.ZoomFactor = _scale / 100d;
+    }
+
+    private void ApplySpellScale()
+    {
+        if (SpellBrowser.CoreWebView2 is not null) SpellBrowser.ZoomFactor = _spellScale / 100d;
+    }
+
+    private async Task ApplyDocumentStyleAsync()
+    {
+        if (DocumentBrowser.CoreWebView2 is null) return;
+        var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
+                  "a{color:#7b241c;} img{max-width:100%;height:auto;}";
+        var encodedCss = JsonSerializer.Serialize(css);
+        var script = "(() => {" +
+                     "const id='core-rules-library-style';" +
+                     "document.getElementById(id)?.remove();" +
+                     "const style=document.createElement('style');" +
+                     "style.id=id;style.textContent=" + encodedCss + ";" +
+                     "(document.head||document.documentElement).appendChild(style);" +
+                     "})()";
         try
         {
-            dynamic document = DocumentBrowser.Document;
-            if (document is null) return;
-            dynamic oldStyle = document.getElementById("core-rules-library-style");
-            if (oldStyle is not null) oldStyle.parentNode.removeChild(oldStyle);
-            dynamic style = document.createElement("style");
-            style.id = "core-rules-library-style";
-            style.type = "text/css";
-            style.styleSheet.cssText = CreateDocumentFontCss() +
-                $"body{{zoom:{_scale}%;margin:18px;}}" +
-                "a{color:#7b241c;} img{max-width:100%;height:auto;}";
-            document.getElementsByTagName("head").item(0).appendChild(style);
+            await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(script);
         }
         catch
         {
-            // Legacy help remains readable if a particular page rejects injected styling.
+            // The source document remains readable if it rejects injected styling.
         }
+    }
+
+    private static string CreatePackagedFontCss()
+    {
+        var folder = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
+        if (!Directory.Exists(folder)) return string.Empty;
+
+        var css = new StringBuilder();
+        foreach (var path in Directory.EnumerateFiles(folder)
+                     .Where(path => path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ||
+                                    path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            var family = name.Contains("korinna", StringComparison.OrdinalIgnoreCase) ? "Core Rules Korinna" :
+                name.Contains("honda", StringComparison.OrdinalIgnoreCase) ? "Core Rules Honda" :
+                name.Contains("university", StringComparison.OrdinalIgnoreCase) ? "Core Rules University Roman" :
+                name.Contains("antiqua", StringComparison.OrdinalIgnoreCase) ? "Core Rules Book Antiqua" : null;
+            if (family is null) continue;
+
+            var format = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "opentype" : "truetype";
+            var mime = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "font/otf" : "font/ttf";
+            css.Append("@font-face{font-family:'").Append(family).Append("';src:url(data:")
+                .Append(mime).Append(";base64,").Append(Convert.ToBase64String(File.ReadAllBytes(path)))
+                .Append(") format('").Append(format).Append("');font-style:normal;font-weight:normal;}");
+        }
+
+        return css.ToString();
     }
 
     private string CreateDocumentFontCss()
     {
         if (_selectedDocument?.Kind != HtmlDocumentKind.Book)
         {
-            return "html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif !important;}";
+            return "html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif !important;}";
         }
 
         const string headings =
@@ -544,41 +554,26 @@ public partial class MainWindow : Window
             "font[size='6'],font[size='6'] *,font[size='7'],font[size='7'] *";
 
         return _selectedDocument.Collection == HtmlDocumentCollection.Ravenloft
-            ? "html,body,body *{font-family:'ITC Korinna','Korinna',Georgia,serif !important;}" +
-              $"{headings}{{font-family:'Honda','ITC Honda','ITC Korinna',serif !important;font-weight:normal !important;}}"
-            : "html,body,body *{font-family:'Book Antiqua',Palatino,Georgia,serif !important;}" +
-              $"{headings}{{font-family:'University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
+            ? "html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif !important;}" +
+              $"{headings}{{font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif !important;font-weight:normal !important;}}"
+            : "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif !important;}" +
+              $"{headings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {
-        if (ModernDocumentBrowser.Visibility == Visibility.Visible)
-        {
-            if (ModernDocumentBrowser.CanGoBack) ModernDocumentBrowser.GoBack();
-        }
-        else if (DocumentBrowser.CanGoBack) DocumentBrowser.GoBack();
+        if (DocumentBrowser.CanGoBack) DocumentBrowser.GoBack();
     }
 
     private void Forward_Click(object sender, RoutedEventArgs e)
     {
-        if (ModernDocumentBrowser.Visibility == Visibility.Visible)
-        {
-            if (ModernDocumentBrowser.CanGoForward) ModernDocumentBrowser.GoForward();
-        }
-        else if (DocumentBrowser.CanGoForward) DocumentBrowser.GoForward();
+        if (DocumentBrowser.CanGoForward) DocumentBrowser.GoForward();
     }
 
     private void StartPage_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedDocument is null) return;
-        if (ModernDocumentBrowser.Visibility == Visibility.Visible)
-        {
-            ModernDocumentBrowser.Source = new Uri(Path.GetFullPath(_selectedDocument.StartPage));
-        }
-        else
-        {
-            DocumentBrowser.Navigate(new Uri(_selectedDocument.StartPage));
-        }
+        DocumentBrowser.Source = new Uri(Path.GetFullPath(_selectedDocument.StartPage));
     }
 
     private void OpenDocument_Click(object sender, RoutedEventArgs e)
