@@ -509,6 +509,7 @@ public partial class MainWindow : Window
                   CreateDocumentParagraphCss() +
                   CreateRulesBoxCss() +
                   CreateResponsiveDocumentCss() +
+                  CreateCoverPageCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
         var script = "(() => {" +
@@ -517,6 +518,14 @@ public partial class MainWindow : Window
                      "const style=document.createElement('style');" +
                      "style.id=id;style.textContent=" + encodedCss + ";" +
                      "(document.head||document.documentElement).appendChild(style);" +
+                     "const body=document.body;" +
+                     "if(body){" +
+                     "const text=(body.innerText||'').replace(/[\\s\\u00a0]/g,'');" +
+                     "const images=body.querySelectorAll('img');" +
+                     "const background=body.hasAttribute('background')||getComputedStyle(body).backgroundImage!=='none';" +
+                     "const cover=text.length===0&&(images.length===1||background);" +
+                     "body.classList.toggle('core-rules-cover-page',cover);" +
+                     "}" +
                      "})()";
         try
         {
@@ -628,6 +637,15 @@ public partial class MainWindow : Window
         "td[width],th[width]{width:auto !important;}" +
         "[nowrap]{white-space:normal !important;}" +
         "pre{max-width:100%;overflow-x:auto;}";
+
+    private static string CreateCoverPageCss() =>
+        "body.core-rules-cover-page{" +
+        "margin:0 !important;min-height:100vh;background-color:#000 !important;" +
+        "background-repeat:no-repeat !important;background-position:top center !important;" +
+        "background-size:contain !important;}" +
+        "body.core-rules-cover-page img{" +
+        "display:block;margin:0 auto !important;max-width:100%;height:auto;" +
+        "border:2px solid #000;box-sizing:border-box;}";
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {
