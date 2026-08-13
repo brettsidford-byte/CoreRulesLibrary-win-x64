@@ -508,6 +508,7 @@ public partial class MainWindow : Window
         var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
                   CreateDocumentParagraphCss() +
                   CreateRulesBoxCss() +
+                  CreateResponsiveDocumentCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
         var script = "(() => {" +
@@ -617,6 +618,16 @@ public partial class MainWindow : Window
         "box-sizing:border-box;max-width:calc(100% - 40px);overflow-x:auto;overflow-wrap:anywhere;}" +
         ".rules-box table{max-width:100%;}" +
         ".rules-box img{max-width:100%;height:auto;}";
+
+    private static string CreateResponsiveDocumentCss() =>
+        "html,body{max-width:100%;overflow-x:hidden;}" +
+        "body{box-sizing:border-box;overflow-wrap:break-word;word-wrap:break-word;}" +
+        "p,div,blockquote,li,td,th{max-width:100%;overflow-wrap:break-word;word-wrap:break-word;}" +
+        "table{max-width:100%;table-layout:auto;}" +
+        "table[width]{width:100% !important;}" +
+        "td[width],th[width]{width:auto !important;}" +
+        "[nowrap]{white-space:normal !important;}" +
+        "pre{max-width:100%;overflow-x:auto;}";
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {
