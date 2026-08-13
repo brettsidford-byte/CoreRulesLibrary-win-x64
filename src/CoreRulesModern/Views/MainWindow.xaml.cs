@@ -595,7 +595,7 @@ public partial class MainWindow : Window
             "p:has(font[size='+4'])+p,p:has(font[size='7'])+p";
 
         return "p{margin-top:0;margin-bottom:0;text-indent:1.5em;}" +
-               $"{headingParagraph}{{text-indent:0;}}" +
+               $"{headingParagraph}{{margin-top:1em;text-indent:0;}}" +
                $"{paragraphAfterHeading},br+p,p:has(>br:last-child)+p{{margin-top:1em;text-indent:0;}}";
     }
 
