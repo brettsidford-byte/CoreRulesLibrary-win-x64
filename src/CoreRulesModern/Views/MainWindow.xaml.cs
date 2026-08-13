@@ -495,6 +495,7 @@ public partial class MainWindow : Window
     {
         if (DocumentBrowser.CoreWebView2 is null) return;
         var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
+                  CreateDocumentParagraphCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
         var script = "(() => {" +
@@ -569,6 +570,33 @@ public partial class MainWindow : Window
               $"{majorHeadings}{{font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif !important;font-weight:normal !important;}}"
             : "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif !important;}" +
               $"{allAdndHeadings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
+    }
+
+    private string CreateDocumentParagraphCss()
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Book) return string.Empty;
+
+        // Consecutive body paragraphs read as a continuous typeset passage:
+        // the first line is indented and no blank line is inserted between
+        // paragraphs. Heading and explicit BR boundaries retain a one-line
+        // separation and begin without an indent.
+        const string headingParagraph =
+            "p:has(h1),p:has(h2),p:has(h3),p:has(h4),p:has(h5),p:has(h6)," +
+            "p:has(font[size='+1']),p:has(font[size='4'])," +
+            "p:has(font[size='+2']),p:has(font[size='5'])," +
+            "p:has(font[size='+3']),p:has(font[size='6'])," +
+            "p:has(font[size='+4']),p:has(font[size='7'])";
+        const string paragraphAfterHeading =
+            "h1+p,h2+p,h3+p,h4+p,h5+p,h6+p," +
+            "p:has(h1)+p,p:has(h2)+p,p:has(h3)+p,p:has(h4)+p,p:has(h5)+p,p:has(h6)+p," +
+            "p:has(font[size='+1'])+p,p:has(font[size='4'])+p," +
+            "p:has(font[size='+2'])+p,p:has(font[size='5'])+p," +
+            "p:has(font[size='+3'])+p,p:has(font[size='6'])+p," +
+            "p:has(font[size='+4'])+p,p:has(font[size='7'])+p";
+
+        return "p{margin-top:0;margin-bottom:0;text-indent:1.5em;}" +
+               $"{headingParagraph}{{text-indent:0;}}" +
+               $"{paragraphAfterHeading},br+p,p:has(>br:last-child)+p{{margin-top:1em;text-indent:0;}}";
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)
