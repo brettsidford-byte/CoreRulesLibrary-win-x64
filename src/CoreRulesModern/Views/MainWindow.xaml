@@ -64,11 +64,21 @@
 
         <Grid x:Name="DocumentPanel" Visibility="Collapsed" Margin="22">
           <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" MinHeight="44" />
+            <RowDefinition Height="6" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <DockPanel Grid.Row="0" Margin="0,0,0,12">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <Grid Grid.Row="0" Margin="0,0,0,8" ClipToBounds="True">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Margin="0,0,0,8">
+              <TextBlock x:Name="DocumentTitleText" FontSize="30" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock x:Name="DocumentPathText" Margin="0,4,0,0" FontSize="12" Foreground="#5B6268"
+                         FontFamily="Consolas" TextWrapping="Wrap" />
+            </StackPanel>
+            <WrapPanel Grid.Row="1" VerticalAlignment="Center">
               <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" />
               <ComboBox x:Name="ScaleBox" Width="82" SelectionChanged="ScaleBox_SelectionChanged" Margin="0,0,12,0">
                 <ComboBoxItem Content="100%" Tag="100" />
@@ -83,16 +93,18 @@
               </ComboBox>
               <Button Content="Back" Click="Back_Click" />
               <Button Content="Forward" Click="Forward_Click" />
+              <Button x:Name="PreviousPageButton" Content="Previous page" Click="PreviousPage_Click"
+                      ToolTip="Open the previous HTML page in this book" IsEnabled="False" />
+              <Button x:Name="NextPageButton" Content="Next page" Click="NextPage_Click"
+                      ToolTip="Open the next HTML page in this book" IsEnabled="False" />
               <Button Content="Start page" Click="StartPage_Click" />
               <Button Content="Open in browser…" Click="OpenDocument_Click" />
-            </StackPanel>
-            <StackPanel>
-              <TextBlock x:Name="DocumentTitleText" FontSize="30" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBlock x:Name="DocumentPathText" Margin="0,4,0,0" FontSize="12" Foreground="#5B6268"
-                         FontFamily="Consolas" TextWrapping="Wrap" />
-            </StackPanel>
-          </DockPanel>
-          <Border Grid.Row="1" BorderBrush="#C9C4B8" BorderThickness="1" Background="White">
+            </WrapPanel>
+          </Grid>
+          <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="#C9C4B8"
+                        Cursor="SizeNS" ToolTip="Drag to resize the reader header" />
+          <Border Grid.Row="2" BorderBrush="#C9C4B8" BorderThickness="1" Background="White">
             <wv2:WebView2 x:Name="DocumentBrowser" NavigationCompleted="DocumentBrowser_NavigationCompleted" />
           </Border>
         </Grid>

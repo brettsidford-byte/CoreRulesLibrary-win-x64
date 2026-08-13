@@ -30,6 +30,8 @@ public partial class MainWindow : Window
     private UserSettingsStore.UserSettings _settings = new();
     private HtmlDocumentEntry? _selectedDocument;
     private OnlineResourceEntry? _selectedOnlineResource;
+    private IReadOnlyList<string> _documentPages = [];
+    private int _documentPageIndex = -1;
     private int _scale = 125;
     private int _spellScale = 175;
 
@@ -286,6 +288,9 @@ public partial class MainWindow : Window
     private async void ShowDocument(HtmlDocumentEntry document)
     {
         _selectedDocument = document;
+        _documentPages = FindDocumentPages(document);
+        _documentPageIndex = FindDocumentPageIndex(document.StartPage);
+        UpdateSequenceNavigationButtons();
         _selectedOnlineResource = null;
         WelcomePanel.Visibility = Visibility.Collapsed;
         SpellPanel.Visibility = Visibility.Collapsed;
@@ -455,6 +460,12 @@ public partial class MainWindow : Window
         CoreWebView2NavigationCompletedEventArgs e)
     {
         if (!e.IsSuccess) return;
+        if (DocumentBrowser.Source is { IsFile: true } source)
+        {
+            var pageIndex = FindDocumentPageIndex(source.LocalPath);
+            if (pageIndex >= 0) _documentPageIndex = pageIndex;
+        }
+        UpdateSequenceNavigationButtons();
         ApplyDocumentScale();
         await ApplyDocumentStyleAsync();
     }
@@ -607,6 +618,53 @@ public partial class MainWindow : Window
     private void Forward_Click(object sender, RoutedEventArgs e)
     {
         if (DocumentBrowser.CanGoForward) DocumentBrowser.GoForward();
+    }
+
+    private void PreviousPage_Click(object sender, RoutedEventArgs e) => NavigateDocumentSequence(-1);
+
+    private void NextPage_Click(object sender, RoutedEventArgs e) => NavigateDocumentSequence(1);
+
+    private void NavigateDocumentSequence(int offset)
+    {
+        var nextIndex = _documentPageIndex + offset;
+        if (nextIndex < 0 || nextIndex >= _documentPages.Count) return;
+
+        _documentPageIndex = nextIndex;
+        DocumentBrowser.Source = new Uri(_documentPages[nextIndex]);
+        UpdateSequenceNavigationButtons();
+    }
+
+    private static IReadOnlyList<string> FindDocumentPages(HtmlDocumentEntry document)
+    {
+        if (document.Kind != HtmlDocumentKind.Book) return [Path.GetFullPath(document.StartPage)];
+
+        var folder = Path.GetDirectoryName(Path.GetFullPath(document.StartPage));
+        if (folder is null || !Directory.Exists(folder)) return [Path.GetFullPath(document.StartPage)];
+
+        return Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+            .Where(path => path.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                           path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => Path.GetRelativePath(folder, path), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private int FindDocumentPageIndex(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        for (var index = 0; index < _documentPages.Count; index++)
+        {
+            if (_documentPages[index].Equals(fullPath, StringComparison.OrdinalIgnoreCase)) return index;
+        }
+
+        return -1;
+    }
+
+    private void UpdateSequenceNavigationButtons()
+    {
+        PreviousPageButton.IsEnabled = _documentPageIndex > 0;
+        NextPageButton.IsEnabled = _documentPageIndex >= 0 && _documentPageIndex < _documentPages.Count - 1;
     }
 
     private void StartPage_Click(object sender, RoutedEventArgs e)
