@@ -507,6 +507,7 @@ public partial class MainWindow : Window
         if (DocumentBrowser.CoreWebView2 is null) return;
         var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
                   CreateDocumentParagraphCss() +
+                  CreateRulesBoxCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
         var script = "(() => {" +
@@ -609,6 +610,14 @@ public partial class MainWindow : Window
                $"{headingParagraph}{{margin-top:1em;text-indent:0;}}" +
                $"{paragraphAfterHeading},br+p,p:has(>br:last-child)+p{{margin-top:1em;text-indent:0;}}";
     }
+
+    private static string CreateRulesBoxCss() =>
+        ".rules-box{" +
+        "background-color:#e0e0e0;border:1px solid #777;padding:12px 16px;margin:16px 20px;" +
+        "box-sizing:border-box;max-width:calc(100% - 40px);overflow-x:auto;overflow-wrap:anywhere;}" +
+        ".rules-box p{margin-top:.75em !important;margin-bottom:.75em !important;text-indent:0 !important;}" +
+        ".rules-box table{max-width:100%;}" +
+        ".rules-box img{max-width:100%;height:auto;}";
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {

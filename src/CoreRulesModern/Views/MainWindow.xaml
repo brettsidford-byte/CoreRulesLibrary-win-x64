@@ -11,16 +11,16 @@
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <Border Grid.Row="0" Background="{StaticResource InkBrush}" Padding="22,14">
+    <Border Grid.Row="0" Background="{StaticResource InkBrush}" Padding="10,3">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-          <Button Content="Select book library…" Click="SelectLibrary_Click" />
-          <Button Content="Select character sheets…" Click="SelectCharacters_Click" />
+          <Button Content="Book library…" Click="SelectLibrary_Click" FontSize="11"
+                  Height="22" MinHeight="0" Padding="7,0" Margin="2,0" />
+          <Button Content="Character sheets…" Click="SelectCharacters_Click" FontSize="11"
+                  Height="22" MinHeight="0" Padding="7,0" Margin="2,0" />
         </StackPanel>
-        <StackPanel>
-          <TextBlock Text="CORE RULES LIBRARY" Foreground="White" FontSize="23" FontWeight="SemiBold" />
-          <TextBlock Text="Books, character sheets and spells" Foreground="#D9E0E5" FontSize="13" />
-        </StackPanel>
+        <TextBlock Text="CORE RULES LIBRARY" Foreground="White" FontSize="15" FontWeight="SemiBold"
+                   VerticalAlignment="Center" />
       </DockPanel>
     </Border>
 
@@ -64,7 +64,7 @@
 
         <Grid x:Name="DocumentPanel" Visibility="Collapsed" Margin="22">
           <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" MinHeight="44" />
+            <RowDefinition Height="Auto" MinHeight="28" />
             <RowDefinition Height="6" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
@@ -73,14 +73,19 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <StackPanel Grid.Row="0" Margin="0,0,0,8">
-              <TextBlock x:Name="DocumentTitleText" FontSize="30" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBlock x:Name="DocumentPathText" Margin="0,4,0,0" FontSize="12" Foreground="#5B6268"
-                         FontFamily="Consolas" TextWrapping="Wrap" />
-            </StackPanel>
-            <WrapPanel Grid.Row="1" VerticalAlignment="Center">
+            <WrapPanel Grid.Row="0" Margin="0,0,0,5" VerticalAlignment="Center">
+              <WrapPanel.Resources>
+                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                  <Setter Property="FontSize" Value="11" />
+                  <Setter Property="Height" Value="20" />
+                  <Setter Property="MinHeight" Value="0" />
+                  <Setter Property="Padding" Value="7,0" />
+                  <Setter Property="Margin" Value="2,0" />
+                </Style>
+              </WrapPanel.Resources>
               <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" />
-              <ComboBox x:Name="ScaleBox" Width="82" SelectionChanged="ScaleBox_SelectionChanged" Margin="0,0,12,0">
+              <ComboBox x:Name="ScaleBox" Width="72" Height="22" FontSize="11"
+                        SelectionChanged="ScaleBox_SelectionChanged" Margin="0,0,8,0">
                 <ComboBoxItem Content="100%" Tag="100" />
                 <ComboBoxItem Content="125%" Tag="125" />
                 <ComboBoxItem Content="150%" Tag="150" />
@@ -100,6 +105,11 @@
               <Button Content="Start page" Click="StartPage_Click" />
               <Button Content="Open in browser…" Click="OpenDocument_Click" />
             </WrapPanel>
+            <StackPanel Grid.Row="1">
+              <TextBlock x:Name="DocumentTitleText" FontSize="23" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock x:Name="DocumentPathText" Margin="0,2,0,0" FontSize="11" Foreground="#5B6268"
+                         FontFamily="Consolas" TextWrapping="Wrap" />
+            </StackPanel>
           </Grid>
           <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                         ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="#C9C4B8"
