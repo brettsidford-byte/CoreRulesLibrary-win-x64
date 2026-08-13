@@ -615,7 +615,7 @@ public partial class MainWindow : Window
         ".rules-box{" +
         "background-color:#e0e0e0;border:1px solid #777;padding:12px 16px;margin:16px 20px;" +
         "box-sizing:border-box;max-width:calc(100% - 40px);overflow-x:auto;overflow-wrap:anywhere;}" +
-        ".rules-box p{margin-top:.75em !important;margin-bottom:.75em !important;text-indent:0 !important;}" +
+        ":where(.rules-box) p{margin-top:.75em;margin-bottom:.75em;text-indent:0;}" +
         ".rules-box table{max-width:100%;}" +
         ".rules-box img{max-width:100%;height:auto;}";
 
