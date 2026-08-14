@@ -503,9 +503,11 @@ public partial class MainWindow : Window
     {
         try
         {
-            dynamic document = LegacyDocumentBrowser.Document;
-            dynamic head = document?.getElementsByTagName("head")?.item(0);
-            if (document is null || head is null) return;
+            dynamic? document = LegacyDocumentBrowser.Document;
+            if (document is null) return;
+
+            dynamic? head = document.getElementsByTagName("head")?.item(0);
+            if (head is null) return;
 
             dynamic style = document.createElement("style");
             style.type = "text/css";
