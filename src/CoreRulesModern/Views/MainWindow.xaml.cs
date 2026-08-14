@@ -573,6 +573,7 @@ public partial class MainWindow : Window
         if (DocumentBrowser.CoreWebView2 is null) return;
         var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
                   CreateDocumentParagraphCss() +
+                  CreateCharacterSheetCss() +
                   CreateRulesBoxCss() +
                   CreateResponsiveDocumentCss() +
                   CreateCoverPageCss() +
@@ -685,6 +686,53 @@ public partial class MainWindow : Window
         return "p{margin-top:0;margin-bottom:0;text-indent:1.5em;}" +
                $"{headingParagraph}{{margin-top:1em;text-indent:0;}}" +
                $"{paragraphAfterHeading},br+p,p:has(>br:last-child)+p{{margin-top:1em;text-indent:0;}}";
+    }
+
+    private string CreateCharacterSheetCss()
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
+
+        // Core Rules 2 exports each section as a BORDER=1 table nested inside
+        // a top-level layout table.  Styling that stable structure lets the
+        // original data, column spans and alignment remain untouched.
+        return
+            "html{background:#d8cebc;}" +
+            "body{margin:0!important;padding:24px 28px 40px!important;color:#282521!important;" +
+            "background:" +
+            "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
+            "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)!important;" +
+            "font-size:15px!important;line-height:1.38!important;}" +
+            "body>table{width:100%!important;max-width:1440px!important;margin:0 auto 16px!important;" +
+            "border-collapse:separate!important;border-spacing:12px 0!important;}" +
+            "body>table>tbody>tr>td{padding:0!important;}" +
+            "body>table>tbody>tr>td>table[border='1']{" +
+            "border:1px solid #b79a61!important;border-radius:9px!important;border-spacing:0!important;" +
+            "background:#fffdf7!important;box-shadow:0 3px 11px rgba(55,40,23,.16)!important;" +
+            "overflow:hidden!important;}" +
+            "body>table>tbody>tr>td>table[border='1']>tbody>tr>td{" +
+            "padding:0 12px 10px!important;background:#fffdf7!important;}" +
+            "body>table>tbody>tr>td>table[border='1']>tbody>tr>td>font:first-child{" +
+            "display:block!important;margin:0 -12px 10px!important;padding:9px 13px 8px!important;" +
+            "color:#f7e9c5!important;background:linear-gradient(90deg,#4c211d,#6b3028)!important;" +
+            "border-bottom:2px solid #a88445!important;letter-spacing:.035em!important;" +
+            "font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif!important;" +
+            "font-size:18px!important;font-weight:normal!important;text-shadow:0 1px 1px #24100d!important;}" +
+            "body>table>tbody>tr>td>table[border='1']>tbody>tr>td>br:first-of-type{display:none!important;}" +
+            "body>table>tbody>tr>td>table[border='1'] table{" +
+            "border-collapse:separate!important;border-spacing:0!important;background:transparent!important;}" +
+            "body>table>tbody>tr>td>table[border='1'] table td{" +
+            "padding:6px 8px!important;border-bottom:1px solid rgba(168,132,69,.18)!important;" +
+            "vertical-align:top!important;}" +
+            "body>table>tbody>tr>td>table[border='1'] table tr:last-child>td{" +
+            "border-bottom:0!important;}" +
+            "body>table>tbody>tr>td>table[border='1'] table tr:nth-child(even)>td{" +
+            "background:rgba(232,224,208,.27)!important;}" +
+            "body>table>tbody>tr>td>table[border='1'] font[size='+2']{" +
+            "color:#632b24!important;font-weight:bold!important;}" +
+            "a{color:#7b241c!important;text-decoration-color:#b79a61!important;}" +
+            "@media(max-width:900px){body{padding:14px 10px 28px!important;}" +
+            "body>table{border-spacing:5px 0!important;margin-bottom:10px!important;}" +
+            "body>table>tbody>tr>td>table[border='1'] table td{padding:5px 6px!important;}}";
     }
 
     private static string CreateRulesBoxCss() =>
