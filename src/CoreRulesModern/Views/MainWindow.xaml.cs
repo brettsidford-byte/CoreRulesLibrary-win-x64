@@ -52,8 +52,8 @@ public partial class MainWindow : Window
 
     private static void LoadInterfaceTextures()
     {
-        TrySetTextureBrush("WoodBrush", "WoodTexture.png", Stretch.UniformToFill);
-        TrySetTextureBrush("ParchmentBrush", "ParchmentTexture.png", Stretch.None, true);
+        TrySetTextureBrush("WoodBrush", "WoodTexture.jpg", Stretch.UniformToFill);
+        TrySetTextureBrush("ParchmentBrush", "ParchmentTexture.jpg", Stretch.None, true);
     }
 
     private static void TrySetTextureBrush(string resourceKey, string fileName, Stretch stretch, bool tile = false)
@@ -727,7 +727,7 @@ public partial class MainWindow : Window
 
     private static string CreateParchmentBackgroundImage()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ParchmentTexture.png");
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ParchmentTexture.jpg");
         return File.Exists(path) ? $"url('{new Uri(path).AbsoluteUri}')" : "none";
     }
 
@@ -775,6 +775,7 @@ public partial class MainWindow : Window
                "position:relative!important;isolation:isolate!important;overflow-x:clip!important;overflow-y:visible!important;" +
                "color:#282521!important;background:transparent!important;font-size:15px!important;line-height:1.38!important;}" +
                "body>table,body>hr,body>p{position:relative!important;z-index:1;}" +
+               "body>table{background:transparent!important;}" +
                "body>table,body>table[width]{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 16px!important;" +
                "box-sizing:border-box!important;border-collapse:separate!important;border-spacing:12px 0!important;}" +
                "body>table>tbody>tr>td{padding:0!important;}" +

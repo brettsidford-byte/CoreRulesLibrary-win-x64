@@ -7,7 +7,7 @@
     <RootNamespace>CoreRulesModern</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\CoreRulesLibrary.ico</ApplicationIcon>
-    <Version>0.9.17</Version>
+    <Version>0.9.18</Version>
     <Authors>Core Rules Modern contributors</Authors>
     <Description>Modern Windows viewer for Core Rules WebHelp books and exported HTML character sheets.</Description>
   </PropertyGroup>
@@ -21,7 +21,7 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Include="Assets\WoodTexture.png;Assets\ParchmentTexture.png">
+    <Content Include="Assets\WoodTexture.jpg;Assets\ParchmentTexture.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
