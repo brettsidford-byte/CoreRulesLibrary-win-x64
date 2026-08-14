@@ -768,7 +768,7 @@ public partial class MainWindow : Window
         // otherwise exceed the padded body by a few pixels and create a
         // redundant horizontal scrollbar.
         return "html{overflow-x:hidden!important;overflow-y:auto!important;background-color:#2b190f!important;" +
-               $"background-image:{background}!important;background-position:center center!important;background-size:100% 100%!important;" +
+               $"background-image:{background}!important;background-position:center top!important;background-size:cover!important;" +
                "background-repeat:no-repeat!important;background-attachment:fixed!important;}" +
                "body{margin:0!important;padding:24px 28px 40px!important;box-sizing:border-box!important;" +
                "width:100%!important;max-width:100vw!important;height:auto!important;min-height:0!important;" +
@@ -807,7 +807,7 @@ public partial class MainWindow : Window
 
     private static string CreateCharacterSheetBackground()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletopLandscape.jpg");
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.jpg");
         return File.Exists(path)
             ? $"url('{new Uri(path).AbsoluteUri}')"
             : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
@@ -876,7 +876,7 @@ public partial class MainWindow : Window
             await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(startProbeScript);
             await Task.Delay(1500);
             var browserReport = await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(reportScript);
-            var assetPath = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletopLandscape.jpg");
+            var assetPath = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.jpg");
             var report = new StringBuilder()
                 .AppendLine("Core Rules Library character background diagnostics")
                 .AppendLine($"Application version: {typeof(MainWindow).Assembly.GetName().Version}")
