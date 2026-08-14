@@ -6,6 +6,8 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using CoreRulesModern.Models;
 using CoreRulesModern.Services;
 using Microsoft.Web.WebView2.Core;
@@ -43,8 +45,50 @@ public partial class MainWindow : Window
     {
         _fontLoader.Load();
         InitializeComponent();
+        LoadInterfaceTextures();
         Loaded += (_, _) => LoadSavedLibrary();
         Closed += (_, _) => _fontLoader.Dispose();
+    }
+
+    private static void LoadInterfaceTextures()
+    {
+        TrySetTextureBrush("WoodBrush", "WoodTexture.png", Stretch.UniformToFill);
+        TrySetTextureBrush("ParchmentBrush", "ParchmentTexture.png", Stretch.None, true);
+    }
+
+    private static void TrySetTextureBrush(string resourceKey, string fileName, Stretch stretch, bool tile = false)
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Assets", fileName);
+            if (!File.Exists(path)) return;
+
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.UriSource = new Uri(path, UriKind.Absolute);
+            image.EndInit();
+            image.Freeze();
+
+            var brush = new ImageBrush(image)
+            {
+                Stretch = stretch,
+                AlignmentX = AlignmentX.Center,
+                AlignmentY = AlignmentY.Center
+            };
+            if (tile)
+            {
+                brush.TileMode = TileMode.Tile;
+                brush.ViewportUnits = BrushMappingMode.Absolute;
+                brush.Viewport = new Rect(0, 0, image.PixelWidth, image.PixelHeight);
+            }
+            brush.Freeze();
+            Application.Current.Resources[resourceKey] = brush;
+        }
+        catch
+        {
+            // The solid-colour resource remains in use if a texture cannot load.
+        }
     }
 
     private void LoadSavedLibrary()
