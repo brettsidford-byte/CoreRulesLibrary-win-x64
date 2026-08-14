@@ -579,12 +579,14 @@ public partial class MainWindow : Window
                   CreateCoverPageCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
+        var characterSheetScript = CreateCharacterSheetScript();
         var script = "(() => {" +
                      "const id='core-rules-library-style';" +
                      "document.getElementById(id)?.remove();" +
                      "const style=document.createElement('style');" +
                      "style.id=id;style.textContent=" + encodedCss + ";" +
                      "(document.head||document.documentElement).appendChild(style);" +
+                     characterSheetScript +
                      "const body=document.body;" +
                      "if(body){" +
                      "const text=(body.innerText||'').replace(/[\\s\\u00a0]/g,'');" +
@@ -692,47 +694,109 @@ public partial class MainWindow : Window
     {
         if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
 
-        // Core Rules 2 exports each section as a BORDER=1 table nested inside
-        // a top-level layout table.  Styling that stable structure lets the
-        // original data, column spans and alignment remain untouched.
-        return
-            "html{background:#d8cebc;}" +
-            "body{margin:0!important;padding:24px 28px 40px!important;color:#282521!important;" +
-            "background:" +
-            "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
-            "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)!important;" +
-            "font-size:15px!important;line-height:1.38!important;}" +
-            "body>table{width:100%!important;max-width:1440px!important;margin:0 auto 16px!important;" +
-            "border-collapse:separate!important;border-spacing:12px 0!important;}" +
-            "body>table>tbody>tr>td{padding:0!important;}" +
-            "body>table>tbody>tr>td>table[border='1']{" +
-            "border:1px solid #b79a61!important;border-radius:9px!important;border-spacing:0!important;" +
-            "background:#fffdf7!important;box-shadow:0 3px 11px rgba(55,40,23,.16)!important;" +
-            "overflow:hidden!important;}" +
-            "body>table>tbody>tr>td>table[border='1']>tbody>tr>td{" +
-            "padding:0 12px 10px!important;background:#fffdf7!important;}" +
-            "body>table>tbody>tr>td>table[border='1']>tbody>tr>td>font:first-child{" +
-            "display:block!important;margin:0 -12px 10px!important;padding:9px 13px 8px!important;" +
-            "color:#f7e9c5!important;background:linear-gradient(90deg,#4c211d,#6b3028)!important;" +
-            "border-bottom:2px solid #a88445!important;letter-spacing:.035em!important;" +
-            "font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif!important;" +
-            "font-size:18px!important;font-weight:normal!important;text-shadow:0 1px 1px #24100d!important;}" +
-            "body>table>tbody>tr>td>table[border='1']>tbody>tr>td>br:first-of-type{display:none!important;}" +
-            "body>table>tbody>tr>td>table[border='1'] table{" +
-            "border-collapse:separate!important;border-spacing:0!important;background:transparent!important;}" +
-            "body>table>tbody>tr>td>table[border='1'] table td{" +
-            "padding:6px 8px!important;border-bottom:1px solid rgba(168,132,69,.18)!important;" +
-            "vertical-align:top!important;}" +
-            "body>table>tbody>tr>td>table[border='1'] table tr:last-child>td{" +
-            "border-bottom:0!important;}" +
-            "body>table>tbody>tr>td>table[border='1'] table tr:nth-child(even)>td{" +
-            "background:rgba(232,224,208,.27)!important;}" +
-            "body>table>tbody>tr>td>table[border='1'] font[size='+2']{" +
-            "color:#632b24!important;font-weight:bold!important;}" +
-            "a{color:#7b241c!important;text-decoration-color:#b79a61!important;}" +
-            "@media(max-width:900px){body{padding:14px 10px 28px!important;}" +
-            "body>table{border-spacing:5px 0!important;margin-bottom:10px!important;}" +
-            "body>table>tbody>tr>td>table[border='1'] table td{padding:5px 6px!important;}}";
+        return """
+            html{background:#d8cebc;overflow-x:hidden!important;}
+            body{margin:0!important;padding:20px!important;box-sizing:border-box!important;
+              max-width:100vw!important;overflow-x:hidden!important;color:#282521!important;
+              background:radial-gradient(circle at 12% 5%,rgba(255,255,255,.58),transparent 25%),
+              linear-gradient(135deg,#eee7da 0%,#d9ccb7 100%)!important;font-size:15px!important;line-height:1.38!important;}
+            .cr-sheet,.cr-sheet *{box-sizing:border-box;}
+            .cr-sheet{width:100%;max-width:1500px;margin:0 auto;}
+            .cr-masthead{position:relative;margin:0 0 18px;padding:20px 28px 18px 190px;min-height:126px;
+              color:#f9edcf;background:linear-gradient(120deg,#3b1917 0%,#642c25 64%,#7c3b2c 100%);
+              border:3px solid #2d1814;outline:2px solid #b18a43;outline-offset:-8px;
+              clip-path:polygon(0 8%,4% 8%,5% 0,94% 0,95% 8%,100% 8%,100% 92%,95% 92%,94% 100%,5% 100%,4% 92%,0 92%);
+              box-shadow:0 6px 17px rgba(45,28,18,.28);}
+            .cr-emblem{position:absolute;left:30px;top:17px;width:104px;height:88px;display:grid;place-items:center;
+              border:3px double #d2af67;border-radius:52% 48% 48% 52%;color:#e1bd71;font:52px 'Core Rules Honda',serif;
+              background:rgba(26,10,9,.38);text-shadow:0 2px 2px #170807;}
+            .cr-edition{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#d9bd83;}
+            .cr-name{margin:2px 0 0;font:normal 34px 'Core Rules Honda','Honda',serif;letter-spacing:.025em;}
+            .cr-subtitle{margin-top:4px;color:#ead7ae;font-size:14px;}
+            .cr-identity{margin-bottom:18px;}
+            .cr-primary{display:grid;grid-template-columns:minmax(410px,1.18fr) minmax(280px,.82fr) minmax(330px,1fr);
+              gap:16px;align-items:start;margin-bottom:16px;}
+            .cr-stack,.cr-secondary{display:grid;gap:16px;align-content:start;}
+            .cr-secondary{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:16px;}
+            .cr-card{width:100%!important;margin:0!important;border:2px solid #3d2921!important;
+              border-radius:4px!important;border-spacing:0!important;background:#fffdf7!important;
+              box-shadow:0 3px 10px rgba(55,40,23,.17)!important;overflow:hidden!important;}
+            .cr-card>tbody>tr>td{padding:0 12px 11px!important;background:#fffdf7!important;}
+            .cr-card>tbody>tr>td>font:first-child{display:block!important;margin:0 -12px 10px!important;padding:9px 14px 8px!important;
+              color:#faedca!important;background:linear-gradient(90deg,#51231e,#733428)!important;border-bottom:3px double #c09a52!important;
+              letter-spacing:.06em!important;text-transform:uppercase!important;font:normal 17px 'Core Rules Honda','Honda',serif!important;
+              text-shadow:0 1px 1px #24100d!important;}
+            .cr-card>tbody>tr>td>br:first-of-type{display:none!important;}
+            .cr-card table{width:100%!important;border-collapse:separate!important;border-spacing:0!important;background:transparent!important;}
+            .cr-card table td,.cr-card table th{padding:6px 7px!important;border-bottom:1px solid rgba(139,105,56,.2)!important;
+              vertical-align:top!important;}
+            .cr-card table tr:last-child>td{border-bottom:0!important;}
+            .cr-card table tr:nth-child(even)>td{background:rgba(225,214,193,.25)!important;}
+            .cr-ability-row>td:first-child{color:#672c24!important;font-weight:bold!important;}
+            .cr-ability-row>td:nth-child(2){position:relative;color:#fff8e8!important;background:#672c24!important;
+              border:3px double #c39c53!important;border-radius:50%!important;text-align:center!important;font-size:18px!important;font-weight:bold!important;}
+            .cr-ability-row font[size='+2']{color:inherit!important;font-size:inherit!important;}
+            .cr-attacks{margin-top:0!important;}
+            .cr-attacks>tbody>tr>td>font:first-child{background:linear-gradient(90deg,#283b3c,#3f5b56)!important;}
+            .cr-identity .cr-card>tbody>tr>td>font:first-child{display:none!important;}
+            .cr-identity .cr-card>tbody>tr>td{padding:10px 16px!important;}
+            .cr-identity .cr-card table td{font-size:16px!important;}
+            .cr-source{margin:18px auto 0;color:#675e52;text-align:center;font-size:12px;}
+            .cr-source a{color:#6d2c24!important;}
+            body>table,body>hr,body>p{display:none!important;}
+            a{color:#7b241c!important;text-decoration-color:#b79a61!important;}
+            @media(max-width:1150px){.cr-primary{grid-template-columns:minmax(380px,1.1fr) minmax(300px,.9fr);}
+              .cr-defence{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));}}
+            @media(max-width:760px){body{padding:10px!important;}.cr-masthead{padding:18px 18px 16px 92px;min-height:96px;}
+              .cr-emblem{left:18px;top:18px;width:58px;height:58px;font-size:30px}.cr-name{font-size:25px;}
+              .cr-primary,.cr-secondary,.cr-defence{display:grid;grid-template-columns:1fr;}.cr-defence{grid-column:auto;}}
+            """;
+    }
+
+    private string CreateCharacterSheetScript()
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
+
+        return """
+            const sourceBody=document.body;
+            if(sourceBody&&!sourceBody.dataset.coreRulesSheet){
+              sourceBody.dataset.coreRulesSheet='true';
+              const cards=[...sourceBody.querySelectorAll("table[border='1']")].filter(t=>
+                !t.parentElement?.closest("table[border='1']"));
+              const named=new Map();
+              for(const card of cards){
+                const heading=card.querySelector(':scope>tbody>tr>td>font:first-child strong')?.textContent?.trim()||'';
+                card.classList.add('cr-card');
+                card.dataset.section=heading;
+                named.set(heading,card);
+              }
+              const take=name=>named.get(name)||null;
+              const sheet=document.createElement('main');sheet.className='cr-sheet';
+              const mast=document.createElement('header');mast.className='cr-masthead';
+              const title=(document.title||'Character').trim();
+              mast.innerHTML='<div class="cr-emblem">&amp;</div><div class="cr-edition">Advanced Dungeons &amp; Dragons · Core Rules</div>'+
+                '<div class="cr-name"></div><div class="cr-subtitle">Second Edition character record</div>';
+              mast.querySelector('.cr-name').textContent=title;sheet.appendChild(mast);
+              const identity=document.createElement('section');identity.className='cr-identity';
+              const personal=take('Personal Information');if(personal)identity.appendChild(personal);sheet.appendChild(identity);
+              const primary=document.createElement('section');primary.className='cr-primary';
+              const abilities=take('Ability Scores');if(abilities){abilities.classList.add('cr-abilities');primary.appendChild(abilities);
+                for(const row of abilities.querySelectorAll('tr'))if(row.querySelector("font[size='+2']"))row.classList.add('cr-ability-row');}
+              const combat=document.createElement('div');combat.className='cr-stack cr-combat';
+              for(const name of ['Combat','Armor','Movement and Encumbrance']){const card=take(name);if(card)combat.appendChild(card);}primary.appendChild(combat);
+              const defence=document.createElement('div');defence.className='cr-stack cr-defence';
+              for(const name of ['Saving Throws','Weapon Proficiencies','Non-Weapon Proficiencies']){const card=take(name);if(card)defence.appendChild(card);}primary.appendChild(defence);
+              sheet.appendChild(primary);
+              const attacks=take('Weapons');if(attacks){attacks.classList.add('cr-attacks');sheet.appendChild(attacks);}
+              const secondary=document.createElement('section');secondary.className='cr-secondary';
+              const placed=new Set(['Personal Information','Ability Scores','Combat','Armor','Movement and Encumbrance','Saving Throws','Weapon Proficiencies','Non-Weapon Proficiencies','Weapons']);
+              for(const [name,card] of named)if(!placed.has(name))secondary.appendChild(card);
+              if(secondary.children.length)sheet.appendChild(secondary);
+              const source=document.createElement('div');source.className='cr-source';
+              source.textContent='Character data exported by Advanced Dungeons & Dragons Core Rules 2.0';sheet.appendChild(source);
+              sourceBody.insertBefore(sheet,sourceBody.firstChild);
+            }
+            """;
     }
 
     private static string CreateRulesBoxCss() =>
