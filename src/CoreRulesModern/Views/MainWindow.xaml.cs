@@ -579,12 +579,14 @@ public partial class MainWindow : Window
                   CreateCoverPageCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
+        var characterPrintScript = CreateCharacterPrintScript();
         var script = "(() => {" +
                      "const id='core-rules-library-style';" +
                      "document.getElementById(id)?.remove();" +
                      "const style=document.createElement('style');" +
                      "style.id=id;style.textContent=" + encodedCss + ";" +
                      "(document.head||document.documentElement).appendChild(style);" +
+                     characterPrintScript +
                      "const body=document.body;" +
                      "if(body){" +
                      "const text=(body.innerText||'').replace(/[\\s\\u00a0]/g,'');" +
@@ -695,9 +697,10 @@ public partial class MainWindow : Window
         // The top-level WIDTH=100% tables in the Core Rules 2 export can
         // otherwise exceed the padded body by a few pixels and create a
         // redundant horizontal scrollbar.
-        return "html{overflow-x:hidden!important;background:#d8cebc;}" +
+        return "html{overflow-x:hidden!important;overflow-y:auto!important;background:#d8cebc;}" +
                "body{margin:0!important;padding:24px 28px 40px!important;box-sizing:border-box!important;" +
-               "width:100%!important;max-width:100vw!important;overflow-x:hidden!important;color:#282521!important;" +
+               "width:100%!important;max-width:100vw!important;height:auto!important;min-height:0!important;" +
+               "overflow-x:clip!important;overflow-y:visible!important;color:#282521!important;" +
                "background:radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
                "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)!important;font-size:15px!important;line-height:1.38!important;}" +
                "body>table,body>table[width]{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 16px!important;" +
@@ -718,7 +721,34 @@ public partial class MainWindow : Window
                "body>table>tbody>tr>td>table[border='1'] font[size='+2']{color:#632b24!important;font-weight:bold!important;}" +
                "a{color:#7b241c!important;text-decoration-color:#b79a61!important;}" +
                "@media(max-width:900px){body{padding:14px 10px 28px!important;}body>table,body>table[width]{width:calc(100% - 10px)!important;border-spacing:5px 0!important;margin-bottom:10px!important;}" +
-               "body>table>tbody>tr>td>table[border='1'] table td{padding:5px 6px!important;}}";
+               "body>table>tbody>tr>td>table[border='1'] table td{padding:5px 6px!important;}}" +
+               "@media print{@page{margin:12mm;}html,body{overflow:visible!important;background:#fff!important;}" +
+               "body{padding:0!important;width:auto!important;max-width:none!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}" +
+               "body>table,body>table[width]{width:100%!important;max-width:none!important;margin:0 0 7mm!important;border-spacing:0!important;}" +
+               "body>table{break-inside:avoid-page;page-break-inside:avoid;}" +
+               "body>table.cr-print-break{break-before:page;page-break-before:always;}" +
+               "body>table>tbody>tr>td>table[border='1']{box-shadow:none!important;}" +
+               "body>p:last-of-type{break-before:avoid-page;}" +
+               "body::-webkit-scrollbar,html::-webkit-scrollbar{display:none!important;}}";
+    }
+
+    private string CreateCharacterPrintScript()
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
+
+        // These classes have no screen styling. They mark natural boundaries
+        // in Core Rules 2 exports for WebView2's print pagination.
+        return """
+            const printBreakHeadings=new Set([
+              'Combat','Weapons','Racial Abilities','Spells','Inventory',
+              'Spells Memorized','Spells Known','Character History'
+            ]);
+            for(const card of document.querySelectorAll("table[border='1']")){
+              if(card.parentElement?.closest("table[border='1']"))continue;
+              const heading=card.querySelector(':scope>tbody>tr>td>font:first-child strong')?.textContent?.trim()||'';
+              if(printBreakHeadings.has(heading))card.closest('body>table')?.classList.add('cr-print-break');
+            }
+            """;
     }
 
     private static string CreateRulesBoxCss() =>
