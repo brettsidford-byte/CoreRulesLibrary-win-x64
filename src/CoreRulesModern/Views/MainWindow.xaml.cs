@@ -694,6 +694,12 @@ public partial class MainWindow : Window
     {
         if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
 
+        var backgroundPath = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.png");
+        var background = File.Exists(backgroundPath)
+            ? $"url('{new Uri(backgroundPath).AbsoluteUri}') center top/cover fixed no-repeat"
+            : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
+              "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
+
         // The top-level WIDTH=100% tables in the Core Rules 2 export can
         // otherwise exceed the padded body by a few pixels and create a
         // redundant horizontal scrollbar.
@@ -701,8 +707,7 @@ public partial class MainWindow : Window
                "body{margin:0!important;padding:24px 28px 40px!important;box-sizing:border-box!important;" +
                "width:100%!important;max-width:100vw!important;height:auto!important;min-height:0!important;" +
                "overflow-x:clip!important;overflow-y:visible!important;color:#282521!important;" +
-               "background:radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
-               "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)!important;font-size:15px!important;line-height:1.38!important;}" +
+               $"background:{background}!important;font-size:15px!important;line-height:1.38!important;}}" +
                "body>table,body>table[width]{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 16px!important;" +
                "box-sizing:border-box!important;border-collapse:separate!important;border-spacing:12px 0!important;}" +
                "body>table>tbody>tr>td{padding:0!important;}" +
