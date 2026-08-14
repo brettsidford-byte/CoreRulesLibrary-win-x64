@@ -9,6 +9,11 @@ It does not read or modify Core Rules databases or character `.dat` records. Cha
 
 ## Features
 
+- Original AD&D 2nd Edition Core Rules books use the legacy Windows WebBrowser
+  control (WebView1) for compatibility with their original WebHelp HTML.
+- Added Ravenloft books, character sheets, spells and online resources continue
+  to use Microsoft Edge WebView2.
+
 - separate Characters, grouped Books and levelled Spells navigation;
 - automatic discovery of the installed Core Rules WebHelp library;
 - automatic discovery of additional books beneath `WebHelp/Ravenloft`;
