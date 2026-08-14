@@ -757,8 +757,26 @@ public partial class MainWindow : Window
             return;
         }
 
-        const string script = """
-            (async()=>{
+        const string startProbeScript = """
+            (()=>{
+              const layer=document.getElementById('core-rules-character-background');
+              const imageValue=layer?getComputedStyle(layer).backgroundImage:'';
+              const match=imageValue.match(/url\(["']?(.*?)["']?\)/);
+              const imageUrl=match?.[1]||'';
+              window.__coreRulesBackgroundProbe={status:imageUrl?'loading':'no URL',imageUrl};
+              if(imageUrl){
+                const image=new Image();
+                window.__coreRulesBackgroundProbe.image=image;
+                image.onload=()=>Object.assign(window.__coreRulesBackgroundProbe,{status:'loaded',naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight,complete:image.complete});
+                image.onerror=()=>Object.assign(window.__coreRulesBackgroundProbe,{status:'error',complete:image.complete,naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight});
+                image.src=imageUrl;
+              }
+              return window.__coreRulesBackgroundProbe.status;
+            })()
+            """;
+
+        const string reportScript = """
+            (()=>{
               const root=document.documentElement;
               const body=document.body;
               const layer=document.getElementById('core-rules-character-background');
@@ -769,14 +787,11 @@ public partial class MainWindow : Window
               const imageValue=layerStyle?.backgroundImage||'';
               const match=imageValue.match(/url\(["']?(.*?)["']?\)/);
               const imageUrl=match?.[1]||'';
-              const imageProbe=await new Promise(resolve=>{
-                if(!imageUrl){resolve({status:'no URL'});return;}
-                const image=new Image();
-                const timer=setTimeout(()=>resolve({status:'timeout'}),5000);
-                image.onload=()=>{clearTimeout(timer);resolve({status:'loaded',naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight,complete:image.complete});};
-                image.onerror=()=>{clearTimeout(timer);resolve({status:'error',complete:image.complete});};
-                image.src=imageUrl;
-              });
+              const storedProbe=window.__coreRulesBackgroundProbe||{status:'not started'};
+              const imageProbe={status:storedProbe.status,imageUrl:storedProbe.imageUrl||imageUrl,
+                complete:storedProbe.image?.complete??storedProbe.complete??null,
+                naturalWidth:storedProbe.image?.naturalWidth??storedProbe.naturalWidth??null,
+                naturalHeight:storedProbe.image?.naturalHeight??storedProbe.naturalHeight??null};
               return {
                 location:location.href,
                 compatMode:document.compatMode,
@@ -795,7 +810,9 @@ public partial class MainWindow : Window
         try
         {
             Mouse.OverrideCursor = Cursors.Wait;
-            var browserReport = await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(script);
+            await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(startProbeScript);
+            await Task.Delay(1500);
+            var browserReport = await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(reportScript);
             var assetPath = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.png");
             var report = new StringBuilder()
                 .AppendLine("Core Rules Library character background diagnostics")
