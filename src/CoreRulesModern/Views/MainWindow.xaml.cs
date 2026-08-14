@@ -738,25 +738,11 @@ public partial class MainWindow : Window
 
     private static string CreateCharacterSheetBackground()
     {
-        try
-        {
-            var resource = Application.GetResourceStream(
-                new Uri("pack://application:,,,/Assets/CharacterSheetTabletop.png"));
-            if (resource?.Stream is not { } stream) throw new IOException();
-
-            using (stream)
-            using (var buffer = new MemoryStream())
-            {
-                stream.CopyTo(buffer);
-                return $"url('data:image/png;base64,{Convert.ToBase64String(buffer.ToArray())}') " +
-                       "center top/cover no-repeat";
-            }
-        }
-        catch
-        {
-            return "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
-                   "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
-        }
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.png");
+        return File.Exists(path)
+            ? $"url('{new Uri(path).AbsoluteUri}') center top/cover no-repeat"
+            : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
+              "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
     }
 
     private string CreateCharacterPrintScript()
