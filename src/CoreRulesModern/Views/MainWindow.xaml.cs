@@ -694,11 +694,7 @@ public partial class MainWindow : Window
     {
         if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
 
-        var backgroundPath = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.png");
-        var background = File.Exists(backgroundPath)
-            ? $"url('{new Uri(backgroundPath).AbsoluteUri}') center top/cover fixed no-repeat"
-            : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
-              "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
+        var background = CreateCharacterSheetBackground();
 
         // The top-level WIDTH=100% tables in the Core Rules 2 export can
         // otherwise exceed the padded body by a few pixels and create a
@@ -735,6 +731,29 @@ public partial class MainWindow : Window
                "body>table>tbody>tr>td>table[border='1']{box-shadow:none!important;}" +
                "body>p:last-of-type{break-before:avoid-page;}" +
                "body::-webkit-scrollbar,html::-webkit-scrollbar{display:none!important;}}";
+    }
+
+    private static string CreateCharacterSheetBackground()
+    {
+        try
+        {
+            var resource = Application.GetResourceStream(
+                new Uri("pack://application:,,,/Assets/CharacterSheetTabletop.png"));
+            if (resource?.Stream is not { } stream) throw new IOException();
+
+            using (stream)
+            using (var buffer = new MemoryStream())
+            {
+                stream.CopyTo(buffer);
+                return $"url('data:image/png;base64,{Convert.ToBase64String(buffer.ToArray())}') " +
+                       "center top/cover fixed no-repeat";
+            }
+        }
+        catch
+        {
+            return "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
+                   "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
+        }
     }
 
     private string CreateCharacterPrintScript()
