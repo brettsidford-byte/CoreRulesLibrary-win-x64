@@ -35,6 +35,10 @@ public partial class MainWindow : Window
     private int _scale = 125;
     private int _spellScale = 175;
 
+    private bool UseLegacyDocumentBrowser =>
+        _selectedDocument?.Kind == HtmlDocumentKind.Book &&
+        _selectedDocument.Collection == HtmlDocumentCollection.AdndSecondEdition;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -303,10 +307,23 @@ public partial class MainWindow : Window
         {
             Mouse.OverrideCursor = Cursors.Wait;
             ScaleBox.IsEnabled = true;
-            await DocumentBrowser.EnsureCoreWebView2Async();
-            ApplyDocumentScale();
-            DocumentBrowser.Source = new Uri(Path.GetFullPath(document.StartPage));
-            FooterStatus.Text = $"Displaying {document.Title} · WebView2 · read-only";
+            var address = new Uri(Path.GetFullPath(document.StartPage));
+            if (UseLegacyDocumentBrowser)
+            {
+                DocumentBrowser.Visibility = Visibility.Collapsed;
+                LegacyDocumentBrowser.Visibility = Visibility.Visible;
+                LegacyDocumentBrowser.Navigate(address);
+                FooterStatus.Text = $"Displaying {document.Title} · WebView1 · read-only";
+            }
+            else
+            {
+                LegacyDocumentBrowser.Visibility = Visibility.Collapsed;
+                DocumentBrowser.Visibility = Visibility.Visible;
+                await DocumentBrowser.EnsureCoreWebView2Async();
+                ApplyDocumentScale();
+                DocumentBrowser.Source = address;
+                FooterStatus.Text = $"Displaying {document.Title} · WebView2 · read-only";
+            }
         }
         catch (Exception exception)
         {
@@ -470,6 +487,17 @@ public partial class MainWindow : Window
         await ApplyDocumentStyleAsync();
     }
 
+    private void LegacyDocumentBrowser_LoadCompleted(object sender, System.Windows.Navigation.NavigationEventArgs e)
+    {
+        if (e.Uri is { IsFile: true })
+        {
+            var pageIndex = FindDocumentPageIndex(e.Uri.LocalPath);
+            if (pageIndex >= 0) _documentPageIndex = pageIndex;
+        }
+        UpdateSequenceNavigationButtons();
+        ApplyDocumentScale();
+    }
+
     private void ScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is ComboBox { SelectedItem: ComboBoxItem { Tag: string value } } && int.TryParse(value, out var scale))
@@ -494,7 +522,22 @@ public partial class MainWindow : Window
 
     private void ApplyDocumentScale()
     {
-        if (DocumentBrowser.CoreWebView2 is not null) DocumentBrowser.ZoomFactor = _scale / 100d;
+        if (UseLegacyDocumentBrowser)
+        {
+            try
+            {
+                dynamic document = LegacyDocumentBrowser.Document;
+                if (document?.body is not null) document.body.style.zoom = $"{_scale}%";
+            }
+            catch
+            {
+                // Some legacy pages are still loading or do not expose a body element.
+            }
+        }
+        else if (DocumentBrowser.CoreWebView2 is not null)
+        {
+            DocumentBrowser.ZoomFactor = _scale / 100d;
+        }
     }
 
     private void ApplySpellScale()
@@ -649,12 +692,26 @@ public partial class MainWindow : Window
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {
-        if (DocumentBrowser.CanGoBack) DocumentBrowser.GoBack();
+        if (UseLegacyDocumentBrowser)
+        {
+            if (LegacyDocumentBrowser.CanGoBack) LegacyDocumentBrowser.GoBack();
+        }
+        else if (DocumentBrowser.CanGoBack)
+        {
+            DocumentBrowser.GoBack();
+        }
     }
 
     private void Forward_Click(object sender, RoutedEventArgs e)
     {
-        if (DocumentBrowser.CanGoForward) DocumentBrowser.GoForward();
+        if (UseLegacyDocumentBrowser)
+        {
+            if (LegacyDocumentBrowser.CanGoForward) LegacyDocumentBrowser.GoForward();
+        }
+        else if (DocumentBrowser.CanGoForward)
+        {
+            DocumentBrowser.GoForward();
+        }
     }
 
     private void PreviousPage_Click(object sender, RoutedEventArgs e) => NavigateDocumentSequence(-1);
@@ -667,7 +724,7 @@ public partial class MainWindow : Window
         if (nextIndex < 0 || nextIndex >= _documentPages.Count) return;
 
         _documentPageIndex = nextIndex;
-        DocumentBrowser.Source = new Uri(_documentPages[nextIndex]);
+        NavigateDocument(new Uri(_documentPages[nextIndex]));
         UpdateSequenceNavigationButtons();
     }
 
@@ -707,7 +764,19 @@ public partial class MainWindow : Window
     private void StartPage_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedDocument is null) return;
-        DocumentBrowser.Source = new Uri(Path.GetFullPath(_selectedDocument.StartPage));
+        NavigateDocument(new Uri(Path.GetFullPath(_selectedDocument.StartPage)));
+    }
+
+    private void NavigateDocument(Uri address)
+    {
+        if (UseLegacyDocumentBrowser)
+        {
+            LegacyDocumentBrowser.Navigate(address);
+        }
+        else
+        {
+            DocumentBrowser.Source = address;
+        }
     }
 
     private void OpenDocument_Click(object sender, RoutedEventArgs e)
