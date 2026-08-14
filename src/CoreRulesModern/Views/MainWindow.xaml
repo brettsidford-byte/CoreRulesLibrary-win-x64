@@ -108,9 +108,6 @@
                       ToolTip="Open the next HTML page in this book" IsEnabled="False" />
               <Button Content="Start page" Click="StartPage_Click" />
               <Button Content="Open in browser…" Click="OpenDocument_Click" />
-              <Button x:Name="BackgroundDiagnosticsButton" Content="Background diagnostics…"
-                      Click="BackgroundDiagnostics_Click" Visibility="Collapsed"
-                      ToolTip="Inspect the character-sheet background and copy a diagnostic report" />
             </WrapPanel>
             <StackPanel Grid.Row="1" Margin="12,0,12,8">
               <TextBlock x:Name="DocumentTitleText" FontSize="23" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="#FFF3D4" />

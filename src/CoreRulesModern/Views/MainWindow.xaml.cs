@@ -346,10 +346,6 @@ public partial class MainWindow : Window
         DocumentPanel.Visibility = Visibility.Visible;
         DocumentTitleText.Text = document.Title;
         DocumentPathText.Text = document.StartPage;
-        BackgroundDiagnosticsButton.Visibility = document.Kind == HtmlDocumentKind.Character
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-
         try
         {
             Mouse.OverrideCursor = Cursors.Wait;
@@ -772,9 +768,8 @@ public partial class MainWindow : Window
                "background-repeat:no-repeat!important;background-attachment:fixed!important;}" +
                "body{margin:0!important;padding:24px 28px 40px!important;box-sizing:border-box!important;" +
                "width:100%!important;max-width:100vw!important;height:auto!important;min-height:0!important;" +
-               "position:relative!important;isolation:isolate!important;overflow-x:clip!important;overflow-y:visible!important;" +
+               "position:relative!important;overflow-x:clip!important;overflow-y:visible!important;" +
                "color:#282521!important;background:transparent!important;font-size:15px!important;line-height:1.38!important;}" +
-               "body>table,body>hr,body>p{position:relative!important;z-index:1;}" +
                "body>table{background:transparent!important;}" +
                "body>table,body>table[width]{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 16px!important;" +
                "box-sizing:border-box!important;border-collapse:separate!important;border-spacing:12px 0!important;}" +
@@ -814,110 +809,6 @@ public partial class MainWindow : Window
               "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
     }
 
-    private async void BackgroundDiagnostics_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selectedDocument?.Kind != HtmlDocumentKind.Character || DocumentBrowser.CoreWebView2 is null)
-        {
-            MessageBox.Show(this, "Open a character sheet before running this diagnostic.",
-                "Background diagnostics", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        const string startProbeScript = """
-            (()=>{
-              const root=document.documentElement;
-              const imageValue=getComputedStyle(root).backgroundImage;
-              const match=imageValue.match(/url\(["']?(.*?)["']?\)/);
-              const imageUrl=match?.[1]||'';
-              window.__coreRulesBackgroundProbe={status:imageUrl?'loading':'no URL',imageUrl};
-              if(imageUrl){
-                const image=new Image();
-                window.__coreRulesBackgroundProbe.image=image;
-                image.onload=()=>Object.assign(window.__coreRulesBackgroundProbe,{status:'loaded',naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight,complete:image.complete});
-                image.onerror=()=>Object.assign(window.__coreRulesBackgroundProbe,{status:'error',complete:image.complete,naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight});
-                image.src=imageUrl;
-              }
-              return window.__coreRulesBackgroundProbe.status;
-            })()
-            """;
-
-        const string reportScript = """
-            (()=>{
-              const root=document.documentElement;
-              const body=document.body;
-              const rootStyle=getComputedStyle(root);
-              const bodyStyle=getComputedStyle(body);
-              const imageValue=rootStyle.backgroundImage||'';
-              const match=imageValue.match(/url\(["']?(.*?)["']?\)/);
-              const imageUrl=match?.[1]||'';
-              const storedProbe=window.__coreRulesBackgroundProbe||{status:'not started'};
-              const imageProbe={status:storedProbe.status,imageUrl:storedProbe.imageUrl||imageUrl,
-                complete:storedProbe.image?.complete??storedProbe.complete??null,
-                naturalWidth:storedProbe.image?.naturalWidth??storedProbe.naturalWidth??null,
-                naturalHeight:storedProbe.image?.naturalHeight??storedProbe.naturalHeight??null};
-              return {
-                location:location.href,
-                compatMode:document.compatMode,
-                readyState:document.readyState,
-                devicePixelRatio,
-                viewport:{innerWidth,innerHeight,visualWidth:visualViewport?.width??null,visualHeight:visualViewport?.height??null},
-                scroll:{x:scrollX,y:scrollY,rootClientWidth:root.clientWidth,rootClientHeight:root.clientHeight,rootScrollWidth:root.scrollWidth,rootScrollHeight:root.scrollHeight,bodyClientWidth:body.clientWidth,bodyClientHeight:body.clientHeight,bodyScrollWidth:body.scrollWidth,bodyScrollHeight:body.scrollHeight},
-                root:{background:rootStyle.background,backgroundImage:rootStyle.backgroundImage,backgroundSize:rootStyle.backgroundSize,backgroundPosition:rootStyle.backgroundPosition,backgroundRepeat:rootStyle.backgroundRepeat,backgroundAttachment:rootStyle.backgroundAttachment,overflowX:rootStyle.overflowX,overflowY:rootStyle.overflowY},
-                body:{position:bodyStyle.position,isolation:bodyStyle.isolation,background:bodyStyle.background,overflowX:bodyStyle.overflowX,overflowY:bodyStyle.overflowY},
-                layer:document.getElementById('core-rules-character-background')?'unexpected legacy layer present':null,
-                imageProbe
-              };
-            })()
-            """;
-
-        try
-        {
-            Mouse.OverrideCursor = Cursors.Wait;
-            await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(startProbeScript);
-            await Task.Delay(1500);
-            var browserReport = await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(reportScript);
-            var assetPath = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.jpg");
-            var report = new StringBuilder()
-                .AppendLine("Core Rules Library character background diagnostics")
-                .AppendLine($"Application version: {typeof(MainWindow).Assembly.GetName().Version}")
-                .AppendLine($"WebView2 runtime: {DocumentBrowser.CoreWebView2.Environment.BrowserVersionString}")
-                .AppendLine($"WebView2 source: {DocumentBrowser.Source}")
-                .AppendLine($"WebView2 zoom: {DocumentBrowser.ZoomFactor:0.###}")
-                .AppendLine($"WPF WebView size: {DocumentBrowser.ActualWidth:0.##} × {DocumentBrowser.ActualHeight:0.##}")
-                .AppendLine($"WPF document panel size: {DocumentPanel.ActualWidth:0.##} × {DocumentPanel.ActualHeight:0.##}")
-                .AppendLine($"Asset path: {assetPath}")
-                .AppendLine($"Asset exists: {File.Exists(assetPath)}")
-                .AppendLine($"Asset bytes: {(File.Exists(assetPath) ? new FileInfo(assetPath).Length : 0)}")
-                .AppendLine("Web document report:")
-                .AppendLine(browserReport)
-                .ToString();
-
-            var copied = false;
-            try
-            {
-                Clipboard.SetText(report);
-                copied = true;
-            }
-            catch
-            {
-                // The report remains visible if another process owns the clipboard.
-            }
-
-            MessageBox.Show(this, report + (copied ? "\nThe report has been copied to the clipboard." :
-                    "\nThe clipboard was unavailable; please copy this report manually."),
-                "Background diagnostics", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (Exception exception)
-        {
-            MessageBox.Show(this, $"The diagnostic could not be completed.\n\n{exception}",
-                "Background diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            Mouse.OverrideCursor = null;
-        }
-    }
-
     private string CreateCharacterPrintScript()
     {
         if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
@@ -925,7 +816,6 @@ public partial class MainWindow : Window
         // These classes have no screen styling. They mark natural boundaries
         // in Core Rules 2 exports for WebView2's print pagination.
         return """
-            document.getElementById('core-rules-character-background')?.remove();
             const printBreakHeadings=new Set([
               'Combat','Weapons','Racial Abilities','Spells','Inventory',
               'Spells Memorized','Spells Known','Character History'
