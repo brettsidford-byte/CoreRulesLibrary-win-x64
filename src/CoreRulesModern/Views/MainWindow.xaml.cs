@@ -702,13 +702,13 @@ public partial class MainWindow : Window
         // The top-level WIDTH=100% tables in the Core Rules 2 export can
         // otherwise exceed the padded body by a few pixels and create a
         // redundant horizontal scrollbar.
-        return "html{overflow-x:hidden!important;overflow-y:auto!important;background:#2b190f;}" +
+        return "html{overflow-x:hidden!important;overflow-y:auto!important;background-color:#2b190f!important;" +
+               $"background-image:{background}!important;background-position:center top!important;background-size:cover!important;" +
+               "background-repeat:no-repeat!important;background-attachment:fixed!important;}" +
                "body{margin:0!important;padding:24px 28px 40px!important;box-sizing:border-box!important;" +
                "width:100%!important;max-width:100vw!important;height:auto!important;min-height:0!important;" +
                "position:relative!important;isolation:isolate!important;overflow-x:clip!important;overflow-y:visible!important;" +
                "color:#282521!important;background:transparent!important;font-size:15px!important;line-height:1.38!important;}" +
-               "#core-rules-character-background{position:fixed;inset:0;z-index:0;pointer-events:none;" +
-               $"background:{background}!important;}}" +
                "body>table,body>hr,body>p{position:relative!important;z-index:1;}" +
                "body>table,body>table[width]{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 16px!important;" +
                "box-sizing:border-box!important;border-collapse:separate!important;border-spacing:12px 0!important;}" +
@@ -734,7 +734,7 @@ public partial class MainWindow : Window
                "body>table,body>table[width]{width:100%!important;max-width:none!important;margin:0 0 7mm!important;border-spacing:0!important;}" +
                "body>table{break-inside:avoid-page;page-break-inside:avoid;}" +
                "body>table.cr-print-break{break-before:page;page-break-before:always;}" +
-               "#core-rules-character-background{display:none!important;}body>table>tbody>tr>td>table[border='1']{background:#fff!important;box-shadow:none!important;}" +
+               "body>table>tbody>tr>td>table[border='1']{background:#fff!important;box-shadow:none!important;}" +
                "body>p:last-of-type{break-before:avoid-page;}" +
                "body::-webkit-scrollbar,html::-webkit-scrollbar{display:none!important;}}";
     }
@@ -743,7 +743,7 @@ public partial class MainWindow : Window
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.png");
         return File.Exists(path)
-            ? $"url('{new Uri(path).AbsoluteUri}') center top/cover no-repeat"
+            ? $"url('{new Uri(path).AbsoluteUri}')"
             : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
               "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
     }
@@ -759,8 +759,8 @@ public partial class MainWindow : Window
 
         const string startProbeScript = """
             (()=>{
-              const layer=document.getElementById('core-rules-character-background');
-              const imageValue=layer?getComputedStyle(layer).backgroundImage:'';
+              const root=document.documentElement;
+              const imageValue=getComputedStyle(root).backgroundImage;
               const match=imageValue.match(/url\(["']?(.*?)["']?\)/);
               const imageUrl=match?.[1]||'';
               window.__coreRulesBackgroundProbe={status:imageUrl?'loading':'no URL',imageUrl};
@@ -779,12 +779,9 @@ public partial class MainWindow : Window
             (()=>{
               const root=document.documentElement;
               const body=document.body;
-              const layer=document.getElementById('core-rules-character-background');
               const rootStyle=getComputedStyle(root);
               const bodyStyle=getComputedStyle(body);
-              const layerStyle=layer?getComputedStyle(layer):null;
-              const rect=layer?.getBoundingClientRect()||null;
-              const imageValue=layerStyle?.backgroundImage||'';
+              const imageValue=rootStyle.backgroundImage||'';
               const match=imageValue.match(/url\(["']?(.*?)["']?\)/);
               const imageUrl=match?.[1]||'';
               const storedProbe=window.__coreRulesBackgroundProbe||{status:'not started'};
@@ -799,9 +796,9 @@ public partial class MainWindow : Window
                 devicePixelRatio,
                 viewport:{innerWidth,innerHeight,visualWidth:visualViewport?.width??null,visualHeight:visualViewport?.height??null},
                 scroll:{x:scrollX,y:scrollY,rootClientWidth:root.clientWidth,rootClientHeight:root.clientHeight,rootScrollWidth:root.scrollWidth,rootScrollHeight:root.scrollHeight,bodyClientWidth:body.clientWidth,bodyClientHeight:body.clientHeight,bodyScrollWidth:body.scrollWidth,bodyScrollHeight:body.scrollHeight},
-                root:{background:rootStyle.background,overflowX:rootStyle.overflowX,overflowY:rootStyle.overflowY},
+                root:{background:rootStyle.background,backgroundImage:rootStyle.backgroundImage,backgroundSize:rootStyle.backgroundSize,backgroundPosition:rootStyle.backgroundPosition,backgroundRepeat:rootStyle.backgroundRepeat,backgroundAttachment:rootStyle.backgroundAttachment,overflowX:rootStyle.overflowX,overflowY:rootStyle.overflowY},
                 body:{position:bodyStyle.position,isolation:bodyStyle.isolation,background:bodyStyle.background,overflowX:bodyStyle.overflowX,overflowY:bodyStyle.overflowY},
-                layer:layer?{connected:layer.isConnected,rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,top:rect.top,right:rect.right,bottom:rect.bottom,left:rect.left},position:layerStyle.position,inset:layerStyle.inset,zIndex:layerStyle.zIndex,backgroundImage:imageValue,backgroundSize:layerStyle.backgroundSize,backgroundPosition:layerStyle.backgroundPosition,backgroundRepeat:layerStyle.backgroundRepeat}:null,
+                layer:document.getElementById('core-rules-character-background')?'unexpected legacy layer present':null,
                 imageProbe
               };
             })()
@@ -863,10 +860,6 @@ public partial class MainWindow : Window
         // in Core Rules 2 exports for WebView2's print pagination.
         return """
             document.getElementById('core-rules-character-background')?.remove();
-            const characterBackground=document.createElement('div');
-            characterBackground.id='core-rules-character-background';
-            characterBackground.setAttribute('aria-hidden','true');
-            document.body.prepend(characterBackground);
             const printBreakHeadings=new Set([
               'Combat','Weapons','Racial Abilities','Spells','Inventory',
               'Spells Memorized','Spells Known','Character History'
