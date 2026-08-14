@@ -699,17 +699,19 @@ public partial class MainWindow : Window
         // The top-level WIDTH=100% tables in the Core Rules 2 export can
         // otherwise exceed the padded body by a few pixels and create a
         // redundant horizontal scrollbar.
-        return "html{overflow-x:hidden!important;overflow-y:auto!important;background:#d8cebc;}" +
+        return "html{overflow-x:hidden!important;overflow-y:auto!important;background:#2b190f;}" +
                "body{margin:0!important;padding:24px 28px 40px!important;box-sizing:border-box!important;" +
                "width:100%!important;max-width:100vw!important;height:auto!important;min-height:0!important;" +
-               "overflow-x:clip!important;overflow-y:visible!important;color:#282521!important;" +
-               $"background:{background}!important;font-size:15px!important;line-height:1.38!important;}}" +
+               "position:relative!important;isolation:isolate!important;overflow-x:clip!important;overflow-y:visible!important;" +
+               "color:#282521!important;background:transparent!important;font-size:15px!important;line-height:1.38!important;}" +
+               "body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;" +
+               $"background:{background}!important;}}" +
                "body>table,body>table[width]{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 16px!important;" +
                "box-sizing:border-box!important;border-collapse:separate!important;border-spacing:12px 0!important;}" +
                "body>table>tbody>tr>td{padding:0!important;}" +
                "body>table>tbody>tr>td>table[border='1']{border:1px solid #b79a61!important;border-radius:9px!important;" +
-               "border-spacing:0!important;background:#fffdf7!important;box-shadow:0 3px 11px rgba(55,40,23,.16)!important;overflow:hidden!important;}" +
-               "body>table>tbody>tr>td>table[border='1']>tbody>tr>td{padding:0 12px 10px!important;background:#fffdf7!important;}" +
+               "border-spacing:0!important;background:rgba(255,253,247,.88)!important;box-shadow:0 3px 11px rgba(55,40,23,.22)!important;overflow:hidden!important;}" +
+               "body>table>tbody>tr>td>table[border='1']>tbody>tr>td{padding:0 12px 10px!important;background:transparent!important;}" +
                "body>table>tbody>tr>td>table[border='1']>tbody>tr>td>font:first-child{display:block!important;margin:0 -12px 10px!important;" +
                "padding:9px 13px 8px!important;color:#f7e9c5!important;background:linear-gradient(90deg,#4c211d,#6b3028)!important;" +
                "border-bottom:2px solid #a88445!important;letter-spacing:.035em!important;font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif!important;" +
@@ -728,7 +730,7 @@ public partial class MainWindow : Window
                "body>table,body>table[width]{width:100%!important;max-width:none!important;margin:0 0 7mm!important;border-spacing:0!important;}" +
                "body>table{break-inside:avoid-page;page-break-inside:avoid;}" +
                "body>table.cr-print-break{break-before:page;page-break-before:always;}" +
-               "body>table>tbody>tr>td>table[border='1']{box-shadow:none!important;}" +
+               "body::before{display:none!important;}body>table>tbody>tr>td>table[border='1']{background:#fff!important;box-shadow:none!important;}" +
                "body>p:last-of-type{break-before:avoid-page;}" +
                "body::-webkit-scrollbar,html::-webkit-scrollbar{display:none!important;}}";
     }
@@ -746,7 +748,7 @@ public partial class MainWindow : Window
             {
                 stream.CopyTo(buffer);
                 return $"url('data:image/png;base64,{Convert.ToBase64String(buffer.ToArray())}') " +
-                       "center top/cover fixed no-repeat";
+                       "center top/cover no-repeat";
             }
         }
         catch
