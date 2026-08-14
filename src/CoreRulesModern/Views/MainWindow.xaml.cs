@@ -495,7 +495,28 @@ public partial class MainWindow : Window
             if (pageIndex >= 0) _documentPageIndex = pageIndex;
         }
         UpdateSequenceNavigationButtons();
+        ApplyLegacyParagraphStyle();
         ApplyDocumentScale();
+    }
+
+    private void ApplyLegacyParagraphStyle()
+    {
+        try
+        {
+            dynamic document = LegacyDocumentBrowser.Document;
+            dynamic head = document?.getElementsByTagName("head")?.item(0);
+            if (document is null || head is null) return;
+
+            dynamic style = document.createElement("style");
+            style.type = "text/css";
+            style.styleSheet.cssText =
+                "p{margin-top:0;margin-bottom:0;text-indent:1.5em;}";
+            head.appendChild(style);
+        }
+        catch
+        {
+            // The original page remains usable if its legacy DOM rejects styling.
+        }
     }
 
     private void ScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
