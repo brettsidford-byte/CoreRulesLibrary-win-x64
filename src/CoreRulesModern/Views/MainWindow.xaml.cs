@@ -704,8 +704,9 @@ public partial class MainWindow : Window
                "width:100%!important;max-width:100vw!important;height:auto!important;min-height:0!important;" +
                "position:relative!important;isolation:isolate!important;overflow-x:clip!important;overflow-y:visible!important;" +
                "color:#282521!important;background:transparent!important;font-size:15px!important;line-height:1.38!important;}" +
-               "body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;" +
+               "#core-rules-character-background{position:fixed;inset:0;z-index:0;pointer-events:none;" +
                $"background:{background}!important;}}" +
+               "body>table,body>hr,body>p{position:relative!important;z-index:1;}" +
                "body>table,body>table[width]{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 16px!important;" +
                "box-sizing:border-box!important;border-collapse:separate!important;border-spacing:12px 0!important;}" +
                "body>table>tbody>tr>td{padding:0!important;}" +
@@ -730,7 +731,7 @@ public partial class MainWindow : Window
                "body>table,body>table[width]{width:100%!important;max-width:none!important;margin:0 0 7mm!important;border-spacing:0!important;}" +
                "body>table{break-inside:avoid-page;page-break-inside:avoid;}" +
                "body>table.cr-print-break{break-before:page;page-break-before:always;}" +
-               "body::before{display:none!important;}body>table>tbody>tr>td>table[border='1']{background:#fff!important;box-shadow:none!important;}" +
+               "#core-rules-character-background{display:none!important;}body>table>tbody>tr>td>table[border='1']{background:#fff!important;box-shadow:none!important;}" +
                "body>p:last-of-type{break-before:avoid-page;}" +
                "body::-webkit-scrollbar,html::-webkit-scrollbar{display:none!important;}}";
     }
@@ -765,6 +766,11 @@ public partial class MainWindow : Window
         // These classes have no screen styling. They mark natural boundaries
         // in Core Rules 2 exports for WebView2's print pagination.
         return """
+            document.getElementById('core-rules-character-background')?.remove();
+            const characterBackground=document.createElement('div');
+            characterBackground.id='core-rules-character-background';
+            characterBackground.setAttribute('aria-hidden','true');
+            document.body.prepend(characterBackground);
             const printBreakHeadings=new Set([
               'Combat','Weapons','Racial Abilities','Spells','Inventory',
               'Spells Memorized','Spells Known','Character History'
