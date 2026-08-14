@@ -41,8 +41,8 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        InitializeComponent();
         _fontLoader.Load();
+        InitializeComponent();
         Loaded += (_, _) => LoadSavedLibrary();
         Closed += (_, _) => _fontLoader.Dispose();
     }
@@ -405,7 +405,9 @@ public partial class MainWindow : Window
         }
         html.Append("<style>").Append(CreatePackagedFontCss());
         html.Append("html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
-        html.Append("body{margin:22px;color:#17212b;background:#fff;font-size:16px;line-height:1.45}");
+        html.Append("body{margin:22px;color:#17212b;background-color:#f5e8c8;background-image:")
+            .Append(CreateParchmentBackgroundImage())
+            .Append(";background-repeat:repeat;background-size:768px 768px;font-size:16px;line-height:1.45}");
         html.Append(".badges{margin:0 0 18px}.badge{display:inline-block;background:#8d2f23;color:#fff;padding:4px 9px;margin:0 6px 6px 0;border-radius:3px}");
         html.Append("table{border-collapse:collapse;width:100%;max-width:980px;margin-bottom:24px}th,td{border-bottom:1px solid #d8d2c6;padding:9px 12px;text-align:left;vertical-align:top}");
         html.Append("th{width:190px;background:#f4f0e7}.description{max-width:980px;white-space:pre-wrap}.muted{color:#657078;font-style:italic}h2{color:#8d2f23;margin-top:22px}");
@@ -515,6 +517,9 @@ public partial class MainWindow : Window
             dynamic style = document.createElement("style");
             style.type = "text/css";
             style.styleSheet.cssText =
+                "html,body{background-color:#f5e8c8!important;background-image:" +
+                CreateParchmentBackgroundImage() +
+                "!important;background-repeat:repeat!important;}" +
                 "p{margin-top:0;margin-bottom:0;text-indent:1.5em;}";
             head.appendChild(style);
         }
@@ -575,6 +580,7 @@ public partial class MainWindow : Window
     {
         if (DocumentBrowser.CoreWebView2 is null) return;
         var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
+                  CreateDocumentSurfaceCss() +
                   CreateDocumentParagraphCss() +
                   CreateCharacterSheetCss() +
                   CreateRulesBoxCss() +
@@ -664,6 +670,21 @@ public partial class MainWindow : Window
               $"{majorHeadings}{{font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif !important;font-weight:normal !important;}}"
             : "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif !important;}" +
               $"{allAdndHeadings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
+    }
+
+    private string CreateDocumentSurfaceCss()
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Book) return string.Empty;
+
+        return "html,body{background-color:#f5e8c8!important;background-image:" +
+               CreateParchmentBackgroundImage() +
+               "!important;background-repeat:repeat!important;background-size:768px 768px!important;}";
+    }
+
+    private static string CreateParchmentBackgroundImage()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ParchmentTexture.png");
+        return File.Exists(path) ? $"url('{new Uri(path).AbsoluteUri}')" : "none";
     }
 
     private string CreateDocumentParagraphCss()

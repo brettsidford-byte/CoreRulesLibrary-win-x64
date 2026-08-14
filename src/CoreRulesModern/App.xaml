@@ -9,11 +9,15 @@
     <SolidColorBrush x:Key="InkBrush" Color="{StaticResource InkColour}" />
     <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColour}" />
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColour}" />
+    <ImageBrush x:Key="WoodBrush" ImageSource="pack://siteoforigin:,,,/Assets/WoodTexture.png"
+                Stretch="UniformToFill" AlignmentX="Center" AlignmentY="Center" />
+    <ImageBrush x:Key="ParchmentBrush" ImageSource="pack://siteoforigin:,,,/Assets/ParchmentTexture.png"
+                TileMode="Tile" ViewportUnits="Absolute" Viewport="0,0,768,768" Stretch="None" />
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI" />
       <Setter Property="FontSize" Value="14" />
       <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-      <Setter Property="Background" Value="#FBFAF6" />
+      <Setter Property="Background" Value="{StaticResource ParchmentBrush}" />
     </Style>
     <Style TargetType="Button">
       <Setter Property="Padding" Value="14,8" />
@@ -22,4 +26,3 @@
     </Style>
   </Application.Resources>
 </Application>
-
