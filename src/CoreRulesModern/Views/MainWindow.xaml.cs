@@ -579,14 +579,12 @@ public partial class MainWindow : Window
                   CreateCoverPageCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
-        var characterSheetScript = CreateCharacterSheetDecorationScript();
         var script = "(() => {" +
                      "const id='core-rules-library-style';" +
                      "document.getElementById(id)?.remove();" +
                      "const style=document.createElement('style');" +
                      "style.id=id;style.textContent=" + encodedCss + ";" +
                      "(document.head||document.documentElement).appendChild(style);" +
-                     characterSheetScript +
                      "const body=document.body;" +
                      "if(body){" +
                      "const text=(body.innerText||'').replace(/[\\s\\u00a0]/g,'');" +
@@ -694,98 +692,33 @@ public partial class MainWindow : Window
     {
         if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
 
-        return """
-            html{background:#d8cebc;overflow-x:hidden!important;}
-            body{margin:0!important;padding:22px 28px 38px!important;box-sizing:border-box!important;
-              width:100%!important;max-width:100vw!important;overflow-x:hidden!important;color:#282521!important;
-              background:radial-gradient(circle at 12% 5%,rgba(255,255,255,.58),transparent 25%),
-              linear-gradient(135deg,#eee7da 0%,#d9ccb7 100%)!important;font-size:15px!important;line-height:1.38!important;}
-            body *{box-sizing:border-box;}
-            .cr-masthead{position:relative;width:calc(100% - 24px);max-width:1440px;margin:0 auto 18px;
-              padding:20px 28px 18px 172px;min-height:118px;
-              color:#f9edcf;background:linear-gradient(120deg,#3b1917 0%,#642c25 64%,#7c3b2c 100%);
-              border:3px solid #2d1814;outline:2px solid #b18a43;outline-offset:-8px;
-              clip-path:polygon(0 8%,4% 8%,5% 0,94% 0,95% 8%,100% 8%,100% 92%,95% 92%,94% 100%,5% 100%,4% 92%,0 92%);
-              box-shadow:0 6px 17px rgba(45,28,18,.28);}
-            .cr-emblem{position:absolute;left:30px;top:16px;width:94px;height:82px;display:grid;place-items:center;
-              border:3px double #d2af67;border-radius:52% 48% 48% 52%;color:#e1bd71;font:48px 'Core Rules Honda',serif;
-              background:rgba(26,10,9,.38);text-shadow:0 2px 2px #170807;}
-            .cr-edition{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#d9bd83;}
-            .cr-name{margin:2px 0 0;font:normal 34px 'Core Rules Honda','Honda',serif;letter-spacing:.025em;}
-            .cr-subtitle{margin-top:3px;color:#ead7ae;font-size:14px;}
-            body>table{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 15px!important;
-              border-collapse:separate!important;border-spacing:10px 0!important;}
-            body>table>tbody>tr>td{padding:0!important;}
-            .cr-card{width:100%!important;margin:0!important;border:2px solid #3d2921!important;border-spacing:0!important;
-              background:#fffdf7!important;box-shadow:0 3px 10px rgba(55,40,23,.17)!important;overflow:hidden!important;
-              clip-path:polygon(0 9px,9px 9px,9px 0,calc(100% - 9px) 0,calc(100% - 9px) 9px,100% 9px,
-                100% calc(100% - 9px),calc(100% - 9px) calc(100% - 9px),calc(100% - 9px) 100%,9px 100%,9px calc(100% - 9px),0 calc(100% - 9px));}
-            .cr-card>tbody>tr>td{padding:0 12px 11px!important;background:#fffdf7!important;}
-            .cr-card>tbody>tr>td>font:first-child{display:block!important;margin:0 -12px 10px!important;padding:9px 14px 8px!important;
-              color:#faedca!important;background:linear-gradient(90deg,#51231e,#733428)!important;border-bottom:3px double #c09a52!important;
-              letter-spacing:.06em!important;text-transform:uppercase!important;font:normal 17px 'Core Rules Honda','Honda',serif!important;
-              text-shadow:0 1px 1px #24100d!important;}
-            .cr-card>tbody>tr>td>br:first-of-type{display:none!important;}
-            .cr-card table{width:100%!important;border-collapse:separate!important;border-spacing:0!important;background:transparent!important;}
-            .cr-card table td,.cr-card table th{padding:6px 7px!important;border-bottom:1px solid rgba(139,105,56,.2)!important;
-              vertical-align:top!important;}
-            .cr-card table tr:last-child>td{border-bottom:0!important;}
-            .cr-card table tr:nth-child(even)>td{background:rgba(225,214,193,.25)!important;}
-            .cr-ability-row>td:first-child{color:#672c24!important;font-weight:bold!important;}
-            .cr-ability-row>td:nth-child(2){color:#fff8e8!important;background:radial-gradient(circle,#803b30 0 58%,#57241f 59% 100%)!important;
-              border:4px double #c39c53!important;border-radius:50%!important;text-align:center!important;font-size:18px!important;
-              font-weight:bold!important;box-shadow:0 2px 5px rgba(45,27,18,.25)!important;}
-            .cr-ability-row font[size='+2']{color:inherit!important;font-size:inherit!important;}
-            .cr-personal>tbody>tr>td>font:first-child{background:linear-gradient(90deg,#273b3c,#49635b)!important;}
-            .cr-combat>tbody>tr>td>font:first-child,.cr-saves>tbody>tr>td>font:first-child,
-            .cr-weapons>tbody>tr>td>font:first-child,.cr-proficiencies>tbody>tr>td>font:first-child{
-              background:linear-gradient(90deg,#283b3c,#3f5b56)!important;}
-            .cr-armor{clip-path:polygon(8% 0,92% 0,100% 10%,96% 78%,84% 91%,50% 100%,16% 91%,4% 78%,0 10%)!important;}
-            .cr-armor>tbody>tr>td{padding:0 22px 30px!important;}
-            .cr-armor>tbody>tr>td>font:first-child{margin:0 -22px 10px!important;text-align:center!important;
-              background:linear-gradient(90deg,#4b211c,#77372a,#4b211c)!important;}
-            body>hr{height:1px;border:0!important;background:linear-gradient(90deg,transparent,#a88445,transparent)!important;
-              max-width:1400px;margin:19px auto!important;}
-            body>p:last-of-type{max-width:1400px;margin:18px auto 0!important;color:#675e52!important;text-align:center!important;font-size:12px!important;}
-            a{color:#7b241c!important;text-decoration-color:#b79a61!important;}
-            @media(max-width:760px){body{padding:10px!important;}.cr-masthead{width:100%;padding:18px 18px 16px 92px;min-height:96px;}
-              .cr-emblem{left:18px;top:18px;width:58px;height:58px;font-size:30px}.cr-name{font-size:25px;}
-              body>table{width:100%!important;border-spacing:4px 0!important;margin-bottom:10px!important;}}
-            """;
-    }
-
-    private string CreateCharacterSheetDecorationScript()
-    {
-        if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
-
-        return """
-            const sourceBody=document.body;
-            if(sourceBody&&!sourceBody.dataset.coreRulesSheet){
-              sourceBody.dataset.coreRulesSheet='true';
-              const cards=[...sourceBody.querySelectorAll("table[border='1']")].filter(t=>
-                !t.parentElement?.closest("table[border='1']"));
-              for(const card of cards){
-                const heading=card.querySelector(':scope>tbody>tr>td>font:first-child strong')?.textContent?.trim()||'';
-                card.classList.add('cr-card');
-                card.dataset.section=heading;
-                const className={
-                  'Personal Information':'cr-personal','Ability Scores':'cr-abilities','Armor':'cr-armor',
-                  'Combat':'cr-combat','Saving Throws':'cr-saves','Weapons':'cr-weapons',
-                  'Weapon Proficiencies':'cr-proficiencies','Non-Weapon Proficiencies':'cr-proficiencies'
-                }[heading];
-                if(className)card.classList.add(className);
-              }
-              const mast=document.createElement('header');mast.className='cr-masthead';
-              const title=(document.title||'Character').trim();
-              mast.innerHTML='<div class="cr-emblem">&amp;</div><div class="cr-edition">Advanced Dungeons &amp; Dragons · Core Rules</div>'+
-                '<div class="cr-name"></div><div class="cr-subtitle">Second Edition character record</div>';
-              mast.querySelector('.cr-name').textContent=title;
-              sourceBody.insertBefore(mast,sourceBody.firstChild);
-              const abilities=sourceBody.querySelector('.cr-abilities');
-              if(abilities)for(const row of abilities.querySelectorAll('tr'))
-                if(row.querySelector("font[size='+2']"))row.classList.add('cr-ability-row');
-            }
-            """;
+        // The top-level WIDTH=100% tables in the Core Rules 2 export can
+        // otherwise exceed the padded body by a few pixels and create a
+        // redundant horizontal scrollbar.
+        return "html{overflow-x:hidden!important;background:#d8cebc;}" +
+               "body{margin:0!important;padding:24px 28px 40px!important;box-sizing:border-box!important;" +
+               "width:100%!important;max-width:100vw!important;overflow-x:hidden!important;color:#282521!important;" +
+               "background:radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
+               "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)!important;font-size:15px!important;line-height:1.38!important;}" +
+               "body>table,body>table[width]{width:calc(100% - 24px)!important;max-width:1440px!important;margin:0 auto 16px!important;" +
+               "box-sizing:border-box!important;border-collapse:separate!important;border-spacing:12px 0!important;}" +
+               "body>table>tbody>tr>td{padding:0!important;}" +
+               "body>table>tbody>tr>td>table[border='1']{border:1px solid #b79a61!important;border-radius:9px!important;" +
+               "border-spacing:0!important;background:#fffdf7!important;box-shadow:0 3px 11px rgba(55,40,23,.16)!important;overflow:hidden!important;}" +
+               "body>table>tbody>tr>td>table[border='1']>tbody>tr>td{padding:0 12px 10px!important;background:#fffdf7!important;}" +
+               "body>table>tbody>tr>td>table[border='1']>tbody>tr>td>font:first-child{display:block!important;margin:0 -12px 10px!important;" +
+               "padding:9px 13px 8px!important;color:#f7e9c5!important;background:linear-gradient(90deg,#4c211d,#6b3028)!important;" +
+               "border-bottom:2px solid #a88445!important;letter-spacing:.035em!important;font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif!important;" +
+               "font-size:18px!important;font-weight:normal!important;text-shadow:0 1px 1px #24100d!important;}" +
+               "body>table>tbody>tr>td>table[border='1']>tbody>tr>td>br:first-of-type{display:none!important;}" +
+               "body>table>tbody>tr>td>table[border='1'] table{border-collapse:separate!important;border-spacing:0!important;background:transparent!important;}" +
+               "body>table>tbody>tr>td>table[border='1'] table td{padding:6px 8px!important;border-bottom:1px solid rgba(168,132,69,.18)!important;vertical-align:top!important;}" +
+               "body>table>tbody>tr>td>table[border='1'] table tr:last-child>td{border-bottom:0!important;}" +
+               "body>table>tbody>tr>td>table[border='1'] table tr:nth-child(even)>td{background:rgba(232,224,208,.27)!important;}" +
+               "body>table>tbody>tr>td>table[border='1'] font[size='+2']{color:#632b24!important;font-weight:bold!important;}" +
+               "a{color:#7b241c!important;text-decoration-color:#b79a61!important;}" +
+               "@media(max-width:900px){body{padding:14px 10px 28px!important;}body>table,body>table[width]{width:calc(100% - 10px)!important;border-spacing:5px 0!important;margin-bottom:10px!important;}" +
+               "body>table>tbody>tr>td>table[border='1'] table td{padding:5px 6px!important;}}";
     }
 
     private static string CreateRulesBoxCss() =>
