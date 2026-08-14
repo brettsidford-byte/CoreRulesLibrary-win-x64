@@ -302,6 +302,9 @@ public partial class MainWindow : Window
         DocumentPanel.Visibility = Visibility.Visible;
         DocumentTitleText.Text = document.Title;
         DocumentPathText.Text = document.StartPage;
+        BackgroundDiagnosticsButton.Visibility = document.Kind == HtmlDocumentKind.Character
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         try
         {
@@ -743,6 +746,96 @@ public partial class MainWindow : Window
             ? $"url('{new Uri(path).AbsoluteUri}') center top/cover no-repeat"
             : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
               "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
+    }
+
+    private async void BackgroundDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Character || DocumentBrowser.CoreWebView2 is null)
+        {
+            MessageBox.Show(this, "Open a character sheet before running this diagnostic.",
+                "Background diagnostics", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        const string script = """
+            (async()=>{
+              const root=document.documentElement;
+              const body=document.body;
+              const layer=document.getElementById('core-rules-character-background');
+              const rootStyle=getComputedStyle(root);
+              const bodyStyle=getComputedStyle(body);
+              const layerStyle=layer?getComputedStyle(layer):null;
+              const rect=layer?.getBoundingClientRect()||null;
+              const imageValue=layerStyle?.backgroundImage||'';
+              const match=imageValue.match(/url\(["']?(.*?)["']?\)/);
+              const imageUrl=match?.[1]||'';
+              const imageProbe=await new Promise(resolve=>{
+                if(!imageUrl){resolve({status:'no URL'});return;}
+                const image=new Image();
+                const timer=setTimeout(()=>resolve({status:'timeout'}),5000);
+                image.onload=()=>{clearTimeout(timer);resolve({status:'loaded',naturalWidth:image.naturalWidth,naturalHeight:image.naturalHeight,complete:image.complete});};
+                image.onerror=()=>{clearTimeout(timer);resolve({status:'error',complete:image.complete});};
+                image.src=imageUrl;
+              });
+              return {
+                location:location.href,
+                compatMode:document.compatMode,
+                readyState:document.readyState,
+                devicePixelRatio,
+                viewport:{innerWidth,innerHeight,visualWidth:visualViewport?.width??null,visualHeight:visualViewport?.height??null},
+                scroll:{x:scrollX,y:scrollY,rootClientWidth:root.clientWidth,rootClientHeight:root.clientHeight,rootScrollWidth:root.scrollWidth,rootScrollHeight:root.scrollHeight,bodyClientWidth:body.clientWidth,bodyClientHeight:body.clientHeight,bodyScrollWidth:body.scrollWidth,bodyScrollHeight:body.scrollHeight},
+                root:{background:rootStyle.background,overflowX:rootStyle.overflowX,overflowY:rootStyle.overflowY},
+                body:{position:bodyStyle.position,isolation:bodyStyle.isolation,background:bodyStyle.background,overflowX:bodyStyle.overflowX,overflowY:bodyStyle.overflowY},
+                layer:layer?{connected:layer.isConnected,rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,top:rect.top,right:rect.right,bottom:rect.bottom,left:rect.left},position:layerStyle.position,inset:layerStyle.inset,zIndex:layerStyle.zIndex,backgroundImage:imageValue,backgroundSize:layerStyle.backgroundSize,backgroundPosition:layerStyle.backgroundPosition,backgroundRepeat:layerStyle.backgroundRepeat}:null,
+                imageProbe
+              };
+            })()
+            """;
+
+        try
+        {
+            Mouse.OverrideCursor = Cursors.Wait;
+            var browserReport = await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(script);
+            var assetPath = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.png");
+            var report = new StringBuilder()
+                .AppendLine("Core Rules Library character background diagnostics")
+                .AppendLine($"Application version: {typeof(MainWindow).Assembly.GetName().Version}")
+                .AppendLine($"WebView2 runtime: {DocumentBrowser.CoreWebView2.Environment.BrowserVersionString}")
+                .AppendLine($"WebView2 source: {DocumentBrowser.Source}")
+                .AppendLine($"WebView2 zoom: {DocumentBrowser.ZoomFactor:0.###}")
+                .AppendLine($"WPF WebView size: {DocumentBrowser.ActualWidth:0.##} × {DocumentBrowser.ActualHeight:0.##}")
+                .AppendLine($"WPF document panel size: {DocumentPanel.ActualWidth:0.##} × {DocumentPanel.ActualHeight:0.##}")
+                .AppendLine($"Asset path: {assetPath}")
+                .AppendLine($"Asset exists: {File.Exists(assetPath)}")
+                .AppendLine($"Asset bytes: {(File.Exists(assetPath) ? new FileInfo(assetPath).Length : 0)}")
+                .AppendLine("Web document report:")
+                .AppendLine(browserReport)
+                .ToString();
+
+            var copied = false;
+            try
+            {
+                Clipboard.SetText(report);
+                copied = true;
+            }
+            catch
+            {
+                // The report remains visible if another process owns the clipboard.
+            }
+
+            MessageBox.Show(this, report + (copied ? "\nThe report has been copied to the clipboard." :
+                    "\nThe clipboard was unavailable; please copy this report manually."),
+                "Background diagnostics", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"The diagnostic could not be completed.\n\n{exception}",
+                "Background diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+        }
     }
 
     private string CreateCharacterPrintScript()
