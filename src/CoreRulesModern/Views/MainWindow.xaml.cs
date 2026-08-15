@@ -643,6 +643,7 @@ public partial class MainWindow : Window
                      "const background=body.hasAttribute('background')||getComputedStyle(body).backgroundImage!=='none';" +
                      "const cover=text.length===0&&(images.length===1||background);" +
                      "body.classList.toggle('core-rules-cover-page',cover);" +
+                     "document.documentElement.classList.toggle('core-rules-cover-document',cover);" +
                      "}" +
                      "})()";
         try
@@ -674,9 +675,10 @@ public partial class MainWindow : Window
 
             var format = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "opentype" : "truetype";
             var mime = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "font/otf" : "font/ttf";
+            var weight = name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "bold" : "normal";
             css.Append("@font-face{font-family:'").Append(family).Append("';src:url(data:")
                 .Append(mime).Append(";base64,").Append(Convert.ToBase64String(File.ReadAllBytes(path)))
-                .Append(") format('").Append(format).Append("');font-style:normal;font-weight:normal;}");
+                .Append(") format('").Append(format).Append("');font-style:normal;font-weight:").Append(weight).Append(";}");
         }
 
         return css.ToString();
@@ -846,8 +848,10 @@ public partial class MainWindow : Window
         "pre{max-width:100%;overflow-x:auto;}";
 
     private static string CreateCoverPageCss() =>
-        "body.core-rules-cover-page{" +
+        "html.core-rules-cover-document{margin:0!important;min-height:100vh;background:#000!important;}" +
+        "html.core-rules-cover-document body.core-rules-cover-page{" +
         "margin:0 !important;min-height:100vh;background-color:#000 !important;" +
+        "background-image:none !important;" +
         "background-repeat:no-repeat !important;background-position:top center !important;" +
         "background-size:contain !important;}" +
         "body.core-rules-cover-page img{" +
