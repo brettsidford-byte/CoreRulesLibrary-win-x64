@@ -557,9 +557,17 @@ public partial class MainWindow : Window
             dynamic style = document.createElement("style");
             style.type = "text/css";
             style.styleSheet.cssText =
+                CreateLegacyFontCss() +
                 "html,body{background-color:#f5e8c8!important;background-image:" +
                 CreateParchmentBackgroundImage() +
                 "!important;background-repeat:repeat!important;}" +
+                "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif!important;}" +
+                "h1,h1 *,h2,h2 *,h3,h3 *,h4,h4 *,h5,h5 *,h6,h6 *," +
+                "font[size='+1'],font[size='+1'] *,font[size='4'],font[size='4'] *," +
+                "font[size='+2'],font[size='+2'] *,font[size='5'],font[size='5'] *," +
+                "font[size='+3'],font[size='+3'] *,font[size='6'],font[size='6'] *," +
+                "font[size='+4'],font[size='+4'] *,font[size='7'],font[size='7'] *{" +
+                "font-family:'Core Rules University Roman','University Roman Std','University Roman',serif!important;}" +
                 "p.core-rules-body-paragraph{margin-top:0!important;margin-bottom:0!important;text-indent:1.5em!important;}" +
                 "p.core-rules-heading-paragraph{margin-top:1em!important;margin-bottom:0!important;text-indent:0!important;}" +
                 "span.core-rules-paragraph-indent{display:inline-block!important;width:1.5em!important;height:0!important;" +
@@ -790,9 +798,40 @@ public partial class MainWindow : Window
             var format = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "opentype" : "truetype";
             var mime = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "font/otf" : "font/ttf";
             var weight = name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "bold" : "normal";
+            var style = name.Contains("italic", StringComparison.OrdinalIgnoreCase) ? "italic" : "normal";
             css.Append("@font-face{font-family:'").Append(family).Append("';src:url(data:")
                 .Append(mime).Append(";base64,").Append(Convert.ToBase64String(File.ReadAllBytes(path)))
-                .Append(") format('").Append(format).Append("');font-style:normal;font-weight:").Append(weight).Append(";}");
+                .Append(") format('").Append(format).Append("');font-style:").Append(style)
+                .Append(";font-weight:").Append(weight).Append(";}");
+        }
+
+        return css.ToString();
+    }
+
+    private static string CreateLegacyFontCss()
+    {
+        var folder = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
+        if (!Directory.Exists(folder)) return string.Empty;
+
+        var css = new StringBuilder();
+        foreach (var path in Directory.EnumerateFiles(folder)
+                     .Where(path => path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ||
+                                    path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            var family = name.Contains("university", StringComparison.OrdinalIgnoreCase)
+                ? "Core Rules University Roman"
+                : name.Contains("antiqua", StringComparison.OrdinalIgnoreCase)
+                    ? "Core Rules Book Antiqua"
+                    : null;
+            if (family is null) continue;
+
+            var format = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "opentype" : "truetype";
+            var weight = name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "bold" : "normal";
+            var style = name.Contains("italic", StringComparison.OrdinalIgnoreCase) ? "italic" : "normal";
+            css.Append("@font-face{font-family:'").Append(family).Append("';src:url('")
+                .Append(new Uri(path).AbsoluteUri).Append("') format('").Append(format)
+                .Append("');font-style:").Append(style).Append(";font-weight:").Append(weight).Append(";}");
         }
 
         return css.ToString();
