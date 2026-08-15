@@ -572,7 +572,7 @@ public partial class MainWindow : Window
                 var className = IsLegacyHeadingParagraph(paragraph)
                     ? "core-rules-heading-paragraph"
                     : "core-rules-body-paragraph";
-                var existingClass = Convert.ToString(paragraph.className)?.Trim();
+                var existingClass = (Convert.ToString(paragraph.className) ?? string.Empty).Trim();
                 if (string.IsNullOrEmpty(existingClass))
                 {
                     paragraph.className = className;
@@ -601,12 +601,12 @@ public partial class MainWindow : Window
         var fontCount = (int)fonts.length;
         for (var index = 0; index < fontCount; index++)
         {
-            var rawSize = Convert.ToString(fonts.item(index).getAttribute("size"))?.Trim();
+            var rawSize = (Convert.ToString(fonts.item(index).getAttribute("size")) ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(rawSize)) continue;
 
-            if (rawSize.StartsWith('+') && int.TryParse(rawSize[1..], out var relativeSize) && relativeSize >= 1)
+            if (rawSize.StartsWith('+') && int.TryParse(rawSize[1..], out int relativeSize) && relativeSize >= 1)
                 return true;
-            if (int.TryParse(rawSize, out var absoluteSize) && absoluteSize >= 4)
+            if (int.TryParse(rawSize, out int absoluteSize) && absoluteSize >= 4)
                 return true;
         }
 
