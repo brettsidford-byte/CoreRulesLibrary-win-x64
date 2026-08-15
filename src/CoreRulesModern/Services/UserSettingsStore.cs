@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.IO;
+using CoreRulesModern.Models;
 
 namespace CoreRulesModern.Services;
 
@@ -36,5 +37,16 @@ public sealed class UserSettingsStore
         string? LibraryPath = null,
         string? CharacterSheetsPath = null,
         int Scale = 125,
-        int SpellScale = 175);
+        int SpellScale = 175,
+        bool ReopenLastPage = true,
+        int RecentPageLimit = 20,
+        IReadOnlyList<SavedPage>? Bookmarks = null,
+        IReadOnlyList<SavedPage>? RecentPages = null,
+        string? LastDocumentStartPage = null,
+        string? LastPagePath = null,
+        string SpellCasterFilter = "All",
+        int SpellLevelFilter = -1,
+        string SpellSchoolSphereFilter = "All schools and spheres",
+        string SpellComponentFilter = "All",
+        string SpellSourceFilter = "All");
 }
