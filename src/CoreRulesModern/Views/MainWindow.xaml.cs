@@ -641,7 +641,11 @@ public partial class MainWindow : Window
                      "const text=(body.innerText||'').replace(/[\\s\\u00a0]/g,'');" +
                      "const images=body.querySelectorAll('img');" +
                      "const background=body.hasAttribute('background')||getComputedStyle(body).backgroundImage!=='none';" +
-                     "const cover=text.length===0&&(images.length===1||background);" +
+                     "const path=decodeURIComponent(location.pathname).replace(/\\\\/g,'/');" +
+                     "const page=path.substring(path.lastIndexOf('/')+1).toLowerCase();" +
+                     "const vanRichtenFolder=/\\/van[_ ]richten[_ ]guides(?:_v\\d+)?\\//i.test(path);" +
+                     "const vanRichtenCover=vanRichtenFolder&&(page==='index.htm'||page==='index.html'||/^vr0[1-9]_00\\.html?$/.test(page));" +
+                     "const cover=vanRichtenCover||(text.length===0&&(images.length===1||background));" +
                      "body.classList.toggle('core-rules-cover-page',cover);" +
                      "document.documentElement.classList.toggle('core-rules-cover-document',cover);" +
                      "}" +
