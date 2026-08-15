@@ -560,13 +560,57 @@ public partial class MainWindow : Window
                 "html,body{background-color:#f5e8c8!important;background-image:" +
                 CreateParchmentBackgroundImage() +
                 "!important;background-repeat:repeat!important;}" +
-                "p{margin-top:0;margin-bottom:0;text-indent:1.5em;}";
+                "p.core-rules-body-paragraph{margin-top:0!important;margin-bottom:0!important;text-indent:1.5em!important;}" +
+                "p.core-rules-heading-paragraph{margin-top:1em!important;margin-bottom:0!important;text-indent:0!important;}";
             head.appendChild(style);
+
+            dynamic paragraphs = document.getElementsByTagName("p");
+            var paragraphCount = (int)paragraphs.length;
+            for (var index = 0; index < paragraphCount; index++)
+            {
+                dynamic paragraph = paragraphs.item(index);
+                var className = IsLegacyHeadingParagraph(paragraph)
+                    ? "core-rules-heading-paragraph"
+                    : "core-rules-body-paragraph";
+                var existingClass = Convert.ToString(paragraph.className)?.Trim();
+                if (string.IsNullOrEmpty(existingClass))
+                {
+                    paragraph.className = className;
+                }
+                else if (!existingClass.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                             .Contains(className, StringComparer.OrdinalIgnoreCase))
+                {
+                    paragraph.className = existingClass + " " + className;
+                }
+            }
         }
         catch
         {
             // The original page remains usable if its legacy DOM rejects styling.
         }
+    }
+
+    private static bool IsLegacyHeadingParagraph(dynamic paragraph)
+    {
+        foreach (var tagName in new[] { "h1", "h2", "h3", "h4", "h5", "h6" })
+        {
+            if ((int)paragraph.getElementsByTagName(tagName).length > 0) return true;
+        }
+
+        dynamic fonts = paragraph.getElementsByTagName("font");
+        var fontCount = (int)fonts.length;
+        for (var index = 0; index < fontCount; index++)
+        {
+            var rawSize = Convert.ToString(fonts.item(index).getAttribute("size"))?.Trim();
+            if (string.IsNullOrEmpty(rawSize)) continue;
+
+            if (rawSize.StartsWith('+') && int.TryParse(rawSize[1..], out var relativeSize) && relativeSize >= 1)
+                return true;
+            if (int.TryParse(rawSize, out var absoluteSize) && absoluteSize >= 4)
+                return true;
+        }
+
+        return false;
     }
 
     private void ScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
