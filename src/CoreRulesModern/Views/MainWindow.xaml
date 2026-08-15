@@ -33,6 +33,8 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="300" MinWidth="220" />
         <ColumnDefinition Width="5" />
+        <ColumnDefinition x:Name="BookContentsColumn" Width="0" MinWidth="0" />
+        <ColumnDefinition x:Name="BookContentsSplitterColumn" Width="0" />
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
@@ -105,7 +107,38 @@
       <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
                     Background="{DynamicResource WoodBrush}" />
 
-      <Grid Grid.Column="2" Background="{DynamicResource WoodBrush}">
+      <Border x:Name="BookContentsPanel" Grid.Column="2" Visibility="Collapsed"
+              Margin="12,22,0,22" BorderBrush="#8A693E" BorderThickness="1"
+              Background="{DynamicResource ParchmentBrush}">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+          <DockPanel Grid.Row="0" Background="{DynamicResource WoodBrush}" LastChildFill="True">
+            <Button DockPanel.Dock="Right" Content="Hide" Click="ToggleBookContents_Click"
+                    FontSize="11" Height="22" MinHeight="0" Padding="7,0" Margin="5"
+                    ToolTip="Collapse the book contents panel" />
+            <TextBlock x:Name="BookContentsTitleText" Text="Contents" Margin="10,7"
+                       FontFamily="ITC Korinna" FontWeight="Bold" FontSize="17"
+                       Foreground="#FFF3D4" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
+          <Grid Grid.Row="1">
+            <WebBrowser x:Name="LegacyContentsBrowser" Visibility="Collapsed"
+                        Navigating="LegacyContentsBrowser_Navigating"
+                        LoadCompleted="LegacyContentsBrowser_LoadCompleted" />
+            <wv2:WebView2 x:Name="ContentsBrowser" Visibility="Collapsed"
+                          NavigationStarting="ContentsBrowser_NavigationStarting"
+                          NavigationCompleted="ContentsBrowser_NavigationCompleted" />
+          </Grid>
+        </Grid>
+      </Border>
+
+      <GridSplitter x:Name="BookContentsSplitter" Grid.Column="3" Width="5"
+                    Visibility="Collapsed" HorizontalAlignment="Stretch"
+                    Background="{DynamicResource WoodBrush}" />
+
+      <Grid Grid.Column="4" Background="{DynamicResource WoodBrush}">
         <StackPanel x:Name="WelcomePanel" Margin="40" MaxWidth="760" HorizontalAlignment="Left">
           <TextBlock Text="Your AD&amp;D library" FontSize="34" FontWeight="SemiBold" />
           <TextBlock x:Name="WelcomeSummary" Margin="0,10,0,22" FontSize="17" TextWrapping="Wrap"
@@ -162,6 +195,9 @@
               <Button x:Name="NextPageButton" Content="Next page" Click="NextPage_Click"
                       ToolTip="Open the next HTML page in this book" IsEnabled="False" />
               <Button Content="Start page" Click="StartPage_Click" />
+              <Button x:Name="ContentsToggleButton" Content="Show contents"
+                      Click="ToggleBookContents_Click" Visibility="Collapsed"
+                      ToolTip="Show or hide this book's table of contents" />
               <Button x:Name="BookmarkPageButton" Content="Bookmark page" Click="BookmarkPage_Click"
                       ToolTip="Add or remove the current page from bookmarks" />
               <Button Content="Open in browser…" Click="OpenDocument_Click" />

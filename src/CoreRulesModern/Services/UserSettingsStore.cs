@@ -48,5 +48,6 @@ public sealed class UserSettingsStore
         int SpellLevelFilter = -1,
         string SpellSchoolSphereFilter = "All schools and spheres",
         string SpellComponentFilter = "All",
-        string SpellSourceFilter = "All");
+        string SpellSourceFilter = "All",
+        bool BookContentsVisible = true);
 }

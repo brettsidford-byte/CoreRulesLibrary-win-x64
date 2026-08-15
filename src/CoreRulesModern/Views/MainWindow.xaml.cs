@@ -39,6 +39,7 @@ public partial class MainWindow : Window
     private int _legacyFindIndex = -1;
     private string _activeFindText = string.Empty;
     private bool _initialisingFilters;
+    private string? _contentsPagePath;
 
     private bool UseLegacyDocumentBrowser =>
         _selectedDocument?.Kind == HtmlDocumentKind.Book &&
@@ -498,6 +499,14 @@ public partial class MainWindow : Window
         try
         {
             Mouse.OverrideCursor = Cursors.Wait;
+            if (document.Kind == HtmlDocumentKind.Book)
+            {
+                await ShowBookContentsAsync(document);
+            }
+            else
+            {
+                HideBookContents();
+            }
             ScaleBox.IsEnabled = true;
             var address = new Uri(targetPage);
             if (UseLegacyDocumentBrowser)
@@ -532,6 +541,7 @@ public partial class MainWindow : Window
     {
         _selectedDocument = null;
         _selectedOnlineResource = null;
+        HideBookContents();
         WelcomePanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Collapsed;
         OnlinePanel.Visibility = Visibility.Collapsed;
@@ -558,6 +568,7 @@ public partial class MainWindow : Window
     {
         _selectedDocument = null;
         _selectedOnlineResource = resource;
+        HideBookContents();
         WelcomePanel.Visibility = Visibility.Collapsed;
         SpellPanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Collapsed;
@@ -696,7 +707,7 @@ public partial class MainWindow : Window
             DocumentPathText.Text = e.Uri.LocalPath;
         }
         UpdateSequenceNavigationButtons();
-        ApplyLegacyParagraphStyle();
+        ApplyLegacyParagraphStyle(LegacyDocumentBrowser);
         ApplyDocumentScale();
         if (e.Uri is { IsFile: true } currentUri)
         {
@@ -731,11 +742,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyLegacyParagraphStyle()
+    private void ApplyLegacyParagraphStyle(WebBrowser browser)
     {
         try
         {
-            dynamic? document = LegacyDocumentBrowser.Document;
+            dynamic? document = browser.Document;
             if (document is null) return;
 
             dynamic? head = document.getElementsByTagName("head")?.item(0);
@@ -922,7 +933,12 @@ public partial class MainWindow : Window
 
     private async Task ApplyDocumentStyleAsync()
     {
-        if (DocumentBrowser.CoreWebView2 is null) return;
+        await ApplyDocumentStyleAsync(DocumentBrowser.CoreWebView2);
+    }
+
+    private async Task ApplyDocumentStyleAsync(CoreWebView2? webView)
+    {
+        if (webView is null) return;
         var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
                   CreateDocumentSurfaceCss() +
                   CreateDocumentParagraphCss() +
@@ -957,7 +973,7 @@ public partial class MainWindow : Window
                      "})()";
         try
         {
-            await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(script);
+            await webView.ExecuteScriptAsync(script);
         }
         catch
         {
@@ -1144,7 +1160,7 @@ public partial class MainWindow : Window
 
     private static string CreateCharacterSheetBackground()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.jpg");
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.png");
         return File.Exists(path)
             ? $"url('{new Uri(path).AbsoluteUri}')"
             : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
@@ -1529,6 +1545,117 @@ public partial class MainWindow : Window
         {
             DocumentBrowser.Source = address;
         }
+    }
+
+    private async Task ShowBookContentsAsync(HtmlDocumentEntry document)
+    {
+        _contentsPagePath = Path.GetFullPath(document.StartPage);
+        BookContentsTitleText.Text = $"Contents — {document.Title}";
+        ContentsToggleButton.Visibility = Visibility.Visible;
+        SetBookContentsPanelVisible(_settings.BookContentsVisible);
+
+        var address = new Uri(_contentsPagePath);
+        if (UseLegacyDocumentBrowser)
+        {
+            ContentsBrowser.Visibility = Visibility.Collapsed;
+            LegacyContentsBrowser.Visibility = Visibility.Visible;
+            if (LegacyContentsBrowser.Source is null ||
+                !PathsEqual(LegacyContentsBrowser.Source.LocalPath, _contentsPagePath))
+            {
+                LegacyContentsBrowser.Navigate(address);
+            }
+        }
+        else
+        {
+            LegacyContentsBrowser.Visibility = Visibility.Collapsed;
+            ContentsBrowser.Visibility = Visibility.Visible;
+            await ContentsBrowser.EnsureCoreWebView2Async();
+            ContentsBrowser.ZoomFactor = 0.9;
+            if (ContentsBrowser.Source is null ||
+                !PathsEqual(ContentsBrowser.Source.LocalPath, _contentsPagePath))
+            {
+                ContentsBrowser.Source = address;
+            }
+        }
+    }
+
+    private void HideBookContents()
+    {
+        _contentsPagePath = null;
+        ContentsToggleButton.Visibility = Visibility.Collapsed;
+        SetBookContentsPanelVisible(false);
+    }
+
+    private void ToggleBookContents_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Book) return;
+
+        var show = BookContentsPanel.Visibility != Visibility.Visible;
+        _settings = _settings with { BookContentsVisible = show };
+        SetBookContentsPanelVisible(show);
+        SaveSettings();
+    }
+
+    private void SetBookContentsPanelVisible(bool visible)
+    {
+        BookContentsColumn.MinWidth = visible ? 220 : 0;
+        BookContentsColumn.Width = visible ? new GridLength(300) : new GridLength(0);
+        BookContentsSplitterColumn.Width = visible ? new GridLength(5) : new GridLength(0);
+        BookContentsPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        BookContentsSplitter.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        ContentsToggleButton.Content = visible ? "Hide contents" : "Show contents";
+    }
+
+    private void LegacyContentsBrowser_Navigating(
+        object sender,
+        System.Windows.Navigation.NavigatingCancelEventArgs e)
+    {
+        if (e.Uri is not { IsFile: true } address ||
+            string.IsNullOrWhiteSpace(_contentsPagePath) ||
+            PathsEqual(address.LocalPath, _contentsPagePath)) return;
+
+        e.Cancel = true;
+        NavigateDocument(address);
+    }
+
+    private void LegacyContentsBrowser_LoadCompleted(
+        object sender,
+        System.Windows.Navigation.NavigationEventArgs e)
+    {
+        ApplyLegacyParagraphStyle(LegacyContentsBrowser);
+        try
+        {
+            dynamic? document = LegacyContentsBrowser.Document;
+            if (document is null) return;
+            dynamic? body = document.body;
+            if (body is not null) body.style.zoom = "90%";
+        }
+        catch
+        {
+            // The contents page remains usable when a legacy DOM rejects zoom.
+        }
+    }
+
+    private void ContentsBrowser_NavigationStarting(
+        object? sender,
+        CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out var address) ||
+            !address.IsFile ||
+            string.IsNullOrWhiteSpace(_contentsPagePath) ||
+            PathsEqual(address.LocalPath, _contentsPagePath)) return;
+
+        e.Cancel = true;
+        NavigateDocument(address);
+    }
+
+    private async void ContentsBrowser_NavigationCompleted(
+        object? sender,
+        CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (!e.IsSuccess) return;
+        ContentsBrowser.ZoomFactor = 0.9;
+        await ApplyDocumentStyleAsync(ContentsBrowser.CoreWebView2);
     }
 
     private void OpenDocument_Click(object sender, RoutedEventArgs e)
