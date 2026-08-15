@@ -561,7 +561,9 @@ public partial class MainWindow : Window
                 CreateParchmentBackgroundImage() +
                 "!important;background-repeat:repeat!important;}" +
                 "p.core-rules-body-paragraph{margin-top:0!important;margin-bottom:0!important;text-indent:1.5em!important;}" +
-                "p.core-rules-heading-paragraph{margin-top:1em!important;margin-bottom:0!important;text-indent:0!important;}";
+                "p.core-rules-heading-paragraph{margin-top:1em!important;margin-bottom:0!important;text-indent:0!important;}" +
+                "span.core-rules-paragraph-indent{display:inline-block!important;width:1.5em!important;height:0!important;" +
+                "margin:0!important;padding:0!important;}";
             head.appendChild(style);
 
             dynamic paragraphs = document.getElementsByTagName("p");
@@ -582,6 +584,27 @@ public partial class MainWindow : Window
                 {
                     paragraph.className = existingClass + " " + className;
                 }
+
+                // Core Rules WebHelp exports use an empty <P></P> as a
+                // paragraph delimiter, leaving the prose as a following text
+                // node. text-indent therefore has no visible target. Preserve
+                // the block boundary and place a small inline spacer before
+                // the following prose instead.
+                var paragraphText = (Convert.ToString(paragraph.innerText) ?? string.Empty).Trim();
+                var alreadyStyled = string.Equals(
+                    Convert.ToString(paragraph.getAttribute("data-core-rules-styled")),
+                    "1",
+                    StringComparison.Ordinal);
+                if (!alreadyStyled &&
+                    className == "core-rules-body-paragraph" &&
+                    paragraphText.Length == 0 &&
+                    !IsInsideLegacyElement(paragraph, "TABLE"))
+                {
+                    paragraph.insertAdjacentHTML(
+                        "afterEnd",
+                        "<span class=\"core-rules-paragraph-indent\" aria-hidden=\"true\">&nbsp;</span>");
+                }
+                paragraph.setAttribute("data-core-rules-styled", "1");
             }
         }
         catch
@@ -597,6 +620,28 @@ public partial class MainWindow : Window
             if ((int)paragraph.getElementsByTagName(tagName).length > 0) return true;
         }
 
+        dynamic? ancestor = paragraph.parentElement;
+        while (ancestor is not null)
+        {
+            var tagName = (Convert.ToString(ancestor.tagName) ?? string.Empty).Trim();
+            if (tagName.Equals("H1", StringComparison.OrdinalIgnoreCase) ||
+                tagName.Equals("H2", StringComparison.OrdinalIgnoreCase) ||
+                tagName.Equals("H3", StringComparison.OrdinalIgnoreCase) ||
+                tagName.Equals("H4", StringComparison.OrdinalIgnoreCase) ||
+                tagName.Equals("H5", StringComparison.OrdinalIgnoreCase) ||
+                tagName.Equals("H6", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (tagName.Equals("FONT", StringComparison.OrdinalIgnoreCase))
+            {
+                object? ancestorSizeValue = ancestor.getAttribute("size");
+                if (IsLegacyHeadingFontSize(Convert.ToString(ancestorSizeValue))) return true;
+            }
+
+            if (tagName.Equals("BODY", StringComparison.OrdinalIgnoreCase)) break;
+            ancestor = ancestor.parentElement;
+        }
+
         dynamic fonts = paragraph.getElementsByTagName("font");
         var fontCount = (int)fonts.length;
         for (var index = 0; index < fontCount; index++)
@@ -605,10 +650,29 @@ public partial class MainWindow : Window
             var rawSize = (Convert.ToString(rawSizeValue) ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(rawSize)) continue;
 
-            if (rawSize.StartsWith('+') && int.TryParse(rawSize[1..], out int relativeSize) && relativeSize >= 1)
-                return true;
-            if (int.TryParse(rawSize, out int absoluteSize) && absoluteSize >= 4)
-                return true;
+            if (IsLegacyHeadingFontSize(rawSize)) return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsLegacyHeadingFontSize(string? value)
+    {
+        var rawSize = value?.Trim() ?? string.Empty;
+        if (rawSize.StartsWith('+') && int.TryParse(rawSize[1..], out int relativeSize))
+            return relativeSize >= 1;
+        return int.TryParse(rawSize, out int absoluteSize) && absoluteSize >= 4;
+    }
+
+    private static bool IsInsideLegacyElement(dynamic element, string tagName)
+    {
+        dynamic? ancestor = element.parentElement;
+        while (ancestor is not null)
+        {
+            var ancestorTag = Convert.ToString(ancestor.tagName);
+            if (string.Equals(ancestorTag, tagName, StringComparison.OrdinalIgnoreCase)) return true;
+            if (string.Equals(ancestorTag, "BODY", StringComparison.OrdinalIgnoreCase)) return false;
+            ancestor = ancestor.parentElement;
         }
 
         return false;
