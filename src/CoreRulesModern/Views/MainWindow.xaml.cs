@@ -645,9 +645,10 @@ public partial class MainWindow : Window
                      "const page=path.substring(path.lastIndexOf('/')+1).toLowerCase();" +
                      "const vanRichtenFolder=/\\/van[_ ]richten[_ ]guides(?:_v\\d+)?\\//i.test(path);" +
                      "const vanRichtenCover=vanRichtenFolder&&(page==='index.htm'||page==='index.html'||/^vr0[1-9]_00\\.html?$/.test(page));" +
-                     "const cover=vanRichtenCover||(text.length===0&&(images.length===1||background));" +
-                     "body.classList.toggle('core-rules-cover-page',cover);" +
-                     "document.documentElement.classList.toggle('core-rules-cover-document',cover);" +
+                     "const simpleCover=text.length===0&&(images.length===1||background);" +
+                     "body.classList.toggle('core-rules-cover-page',simpleCover);" +
+                     "body.classList.toggle('core-rules-van-richten-cover',vanRichtenCover);" +
+                     "document.documentElement.classList.toggle('core-rules-cover-document',simpleCover||vanRichtenCover);" +
                      "}" +
                      "})()";
         try
@@ -853,6 +854,10 @@ public partial class MainWindow : Window
 
     private static string CreateCoverPageCss() =>
         "html.core-rules-cover-document{margin:0!important;min-height:100vh;background:#000!important;}" +
+        "html.core-rules-cover-document body.core-rules-van-richten-cover{" +
+        "background-color:#000!important;background-image:none!important;}" +
+        "body.core-rules-van-richten-cover table[width='700']{" +
+        "width:700px!important;max-width:100%!important;margin-left:auto!important;margin-right:auto!important;}" +
         "html.core-rules-cover-document body.core-rules-cover-page{" +
         "margin:0 !important;min-height:100vh;background-color:#000 !important;" +
         "background-image:none !important;" +
