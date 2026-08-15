@@ -601,7 +601,8 @@ public partial class MainWindow : Window
         var fontCount = (int)fonts.length;
         for (var index = 0; index < fontCount; index++)
         {
-            var rawSize = (Convert.ToString(fonts.item(index).getAttribute("size")) ?? string.Empty).Trim();
+            object? rawSizeValue = fonts.item(index).getAttribute("size");
+            var rawSize = (Convert.ToString(rawSizeValue) ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(rawSize)) continue;
 
             if (rawSize.StartsWith('+') && int.TryParse(rawSize[1..], out int relativeSize) && relativeSize >= 1)
