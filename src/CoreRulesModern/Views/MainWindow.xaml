@@ -136,7 +136,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" MinHeight="120" />
               </Grid.RowDefinitions>
-              <TextBlock Grid.Row="0" Text="Cover" Padding="8,4" FontWeight="Bold"
+              <TextBlock Grid.Row="0" Text="Page 1 / Cover" Padding="8,4" FontWeight="Bold"
                          Background="{DynamicResource WoodBrush}" Foreground="#FFF3D4" />
               <Grid Grid.Row="1">
                 <WebBrowser x:Name="LegacyCoverBrowser" Visibility="Collapsed"
@@ -151,7 +151,7 @@
                             ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
                             Background="{DynamicResource WoodBrush}" Cursor="SizeNS"
                             ToolTip="Drag to resize the cover and contents panes" />
-              <TextBlock Grid.Row="3" Text="Contents" Padding="8,4" FontWeight="Bold"
+              <TextBlock Grid.Row="3" Text="Page 2 / Contents" Padding="8,4" FontWeight="Bold"
                          Background="{DynamicResource WoodBrush}" Foreground="#FFF3D4" />
               <Grid Grid.Row="4">
                 <WebBrowser x:Name="LegacyContentsBrowser" Visibility="Collapsed"

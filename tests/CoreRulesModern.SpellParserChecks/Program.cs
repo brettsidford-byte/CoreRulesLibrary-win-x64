@@ -104,18 +104,28 @@ static void CheckSettingsStore(string temporaryFolder)
     var settingsPath = Path.Combine(temporaryFolder, "settings", "settings.json");
     var store = new UserSettingsStore(settingsPath);
     var first = new UserSettingsStore.UserSettings(
-        Scale: 150, RecentPageLimit: 30, BookReferenceCoverHeight: 360);
+        Scale: 150, RecentPageLimit: 30, BookReferenceCoverHeight: 360, BookContentsWidth: 420);
     store.Save(first);
     Require(store.Load().Scale == 150, "Settings did not survive a save/load round trip.");
     Require(store.Load().BookReferenceCoverHeight == 360,
         "The cover/contents splitter position did not survive a save/load round trip.");
+    Require(store.Load().BookContentsWidth == 420,
+        "The centre viewer width did not survive a save/load round trip.");
 
-    store.Save(first with { Scale = 999, RecentPageLimit = 999, BookReferenceCoverHeight = 20 });
+    store.Save(first with
+    {
+        Scale = 999,
+        RecentPageLimit = 999,
+        BookReferenceCoverHeight = 20,
+        BookContentsWidth = 20
+    });
     var normalised = store.Load();
     Require(normalised.Scale == 125, "Invalid document scale was not normalised.");
     Require(normalised.RecentPageLimit == 20, "Invalid recent-page limit was not normalised.");
     Require(normalised.BookReferenceCoverHeight == 240,
         "Invalid cover/contents splitter position was not normalised.");
+    Require(normalised.BookContentsWidth == 300,
+        "Invalid centre viewer width was not normalised.");
     Require(File.Exists(settingsPath + ".bak"), "Atomic settings replacement did not retain a backup.");
 
     File.WriteAllText(settingsPath, "{not valid JSON");
@@ -150,6 +160,18 @@ static void CheckBrowserSecurityPolicy(string temporaryFolder)
 
 static void CheckBookContentsResolver(string temporaryFolder)
 {
+    var ordinaryFolder = Path.Combine(temporaryFolder, "ordinary-book");
+    Directory.CreateDirectory(ordinaryFolder);
+    var ordinaryStart = Path.Combine(ordinaryFolder, "DD00100.htm");
+    var ordinarySecond = Path.Combine(ordinaryFolder, "DD00101.htm");
+    File.WriteAllText(ordinaryStart, "<title>Page 1</title>");
+    File.WriteAllText(ordinarySecond, "<title>Page 2</title>");
+    var ordinary = BookContentsResolver.Resolve(ordinaryStart, ordinaryStart);
+    Require(ordinary.CoverPagePath == Path.GetFullPath(ordinaryStart),
+        "An ordinary book did not use its first page in the upper pane.");
+    Require(ordinary.PagePath == Path.GetFullPath(ordinarySecond),
+        "An ordinary book did not use its second page in the lower pane.");
+
     var folder = Path.Combine(temporaryFolder, "Van_Richten_Guides_V2");
     Directory.CreateDirectory(folder);
     var startPage = Path.Combine(folder, "index.htm");

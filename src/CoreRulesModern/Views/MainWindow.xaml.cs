@@ -1908,8 +1908,17 @@ public partial class MainWindow : Window
 
     private void SetBookContentsPanelVisible(bool visible)
     {
+        var retainedWidth = BookContentsPanel.Visibility == Visibility.Visible &&
+                            BookContentsColumn.ActualWidth >= 220
+            ? BookContentsColumn.ActualWidth
+            : _settings.BookContentsWidth;
+        if (BookContentsPanel.Visibility == Visibility.Visible &&
+            BookContentsColumn.ActualWidth >= 220)
+        {
+            _settings = _settings with { BookContentsWidth = BookContentsColumn.ActualWidth };
+        }
         BookContentsColumn.MinWidth = visible ? 220 : 0;
-        BookContentsColumn.Width = visible ? new GridLength(300) : new GridLength(0);
+        BookContentsColumn.Width = visible ? new GridLength(retainedWidth) : new GridLength(0);
         BookContentsSplitterColumn.Width = visible ? new GridLength(5) : new GridLength(0);
         BookContentsPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         BookContentsSplitter.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
@@ -2244,7 +2253,10 @@ public partial class MainWindow : Window
             SpellSourceFilter = Convert.ToString(SpellSourceFilterBox.SelectedValue) ?? "All",
             BookReferenceCoverHeight = CoverViewerRow.ActualHeight >= 120
                 ? CoverViewerRow.ActualHeight
-                : _settings.BookReferenceCoverHeight
+                : _settings.BookReferenceCoverHeight,
+            BookContentsWidth = BookContentsColumn.ActualWidth >= 220
+                ? BookContentsColumn.ActualWidth
+                : _settings.BookContentsWidth
         };
         _settingsStore.Save(_settings);
     }

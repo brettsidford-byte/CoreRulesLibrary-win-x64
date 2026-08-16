@@ -55,6 +55,9 @@ public sealed class UserSettingsStore
             BookReferenceCoverHeight = settings.BookReferenceCoverHeight is >= 120 and <= 1000
                 ? settings.BookReferenceCoverHeight
                 : 240,
+            BookContentsWidth = settings.BookContentsWidth is >= 220 and <= 1000
+                ? settings.BookContentsWidth
+                : 300,
             Bookmarks = settings.Bookmarks ?? [],
             RecentPages = settings.RecentPages ?? []
         };
@@ -94,5 +97,6 @@ public sealed class UserSettingsStore
         string SpellComponentFilter = "All",
         string SpellSourceFilter = "All",
         bool BookContentsVisible = true,
-        double BookReferenceCoverHeight = 240);
+        double BookReferenceCoverHeight = 240,
+        double BookContentsWidth = 300);
 }

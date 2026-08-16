@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace CoreRulesModern.Services;
@@ -26,7 +27,8 @@ public static partial class BookContentsResolver
 
     public static BookContentsLocation Resolve(string startPage, string? currentPage)
     {
-        var fallback = new BookContentsLocation(Path.GetFullPath(startPage));
+        var start = Path.GetFullPath(startPage);
+        var fallback = ResolveFirstTwoPages(start);
         if (string.IsNullOrWhiteSpace(currentPage)) return fallback;
 
         var match = VanRichtenPageName().Match(Path.GetFileName(currentPage));
@@ -62,9 +64,67 @@ public static partial class BookContentsResolver
         return new BookContentsLocation(
             fallback.PagePath,
             VanRichtenGuideTitles[prefix],
-            coverPage);
+            coverPage ?? fallback.CoverPagePath);
+    }
+
+    private static BookContentsLocation ResolveFirstTwoPages(string startPage)
+    {
+        var folder = Path.GetDirectoryName(startPage);
+        if (folder is null || !Directory.Exists(folder))
+        {
+            return new BookContentsLocation(startPage, CoverPagePath: startPage);
+        }
+
+        var linkedPage = ResolveFirstLinkedPage(startPage, folder);
+        var pages = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .Where(path => path.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                           path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+            .Select(Path.GetFullPath)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var startIndex = Array.FindIndex(pages,
+            page => page.Equals(startPage, StringComparison.OrdinalIgnoreCase));
+        var secondPage = linkedPage ?? (startIndex >= 0 && startIndex + 1 < pages.Length
+            ? pages[startIndex + 1]
+            : startPage);
+
+        return new BookContentsLocation(secondPage, CoverPagePath: startPage);
+    }
+
+    private static string? ResolveFirstLinkedPage(string startPage, string folder)
+    {
+        try
+        {
+            var html = File.ReadAllText(startPage);
+            foreach (Match match in LocalPageLink().Matches(html))
+            {
+                var href = WebUtility.HtmlDecode(match.Groups[1].Value).Trim();
+                var fragmentIndex = href.IndexOf('#');
+                if (fragmentIndex >= 0) href = href[..fragmentIndex];
+                if (string.IsNullOrWhiteSpace(href)) continue;
+
+                var candidate = Path.GetFullPath(Path.Combine(folder, href.Replace('/', Path.DirectorySeparatorChar)));
+                if ((candidate.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                     candidate.EndsWith(".html", StringComparison.OrdinalIgnoreCase)) &&
+                    File.Exists(candidate) &&
+                    !candidate.Equals(startPage, StringComparison.OrdinalIgnoreCase))
+                {
+                    return candidate;
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            // Fall back to the next filename when the start page cannot be read safely.
+        }
+
+        return null;
     }
 
     [GeneratedRegex(@"^(vr0[1-9])_\d+\.html?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex VanRichtenPageName();
+
+    [GeneratedRegex(@"href\s*=\s*[\""']([^\""']+\.html?(?:#[^\""']*)?)[\""']",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex LocalPageLink();
 }
