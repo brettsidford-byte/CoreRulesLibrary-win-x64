@@ -23,8 +23,8 @@
           <Button Content="Settings…" Click="Settings_Click" FontSize="11"
                   Height="22" MinHeight="0" Padding="7,0" Margin="2,0" />
         </StackPanel>
-        <TextBlock Text="CORE RULES LIBRARY" Foreground="#E34B3F" FontSize="15"
-                   FontFamily="ITC Korinna" FontWeight="Bold"
+        <TextBlock Text="AD&amp;D CORE RULES LIBRARY" Foreground="#E34B3F" FontSize="15"
+                   FontFamily="Friz Quadrata" FontWeight="Bold"
                    VerticalAlignment="Center" />
       </DockPanel>
     </Border>
@@ -119,6 +119,10 @@
             <Button DockPanel.Dock="Right" Content="Hide" Click="ToggleBookContents_Click"
                     FontSize="11" Height="22" MinHeight="0" Padding="7,0" Margin="5"
                     ToolTip="Collapse the book contents panel" />
+            <Button x:Name="ContextBookmarkButton" DockPanel.Dock="Right" Content="Bookmark spell"
+                    Click="ContextBookmark_Click" Visibility="Collapsed"
+                    FontSize="11" Height="22" MinHeight="0" Padding="7,0" Margin="0,5,0,5"
+                    ToolTip="Add or remove this spell from bookmarks" />
             <TextBlock x:Name="BookContentsTitleText" Text="Contents" Margin="10,7"
                        FontFamily="ITC Korinna" FontWeight="Bold" FontSize="17"
                        Foreground="#FFF3D4" TextTrimming="CharacterEllipsis" />
@@ -238,6 +242,8 @@
           </Grid.RowDefinitions>
           <DockPanel Grid.Row="0" Margin="0,0,0,12" Background="{DynamicResource WoodBrush}" LastChildFill="True">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,8">
+              <Button x:Name="SpellBookmarkButton" Content="Bookmark spell" Click="SpellBookmark_Click"
+                      ToolTip="Add or remove this spell from bookmarks" />
               <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FFF3D4" />
               <ComboBox x:Name="SpellScaleBox" Width="82" SelectionChanged="ScaleBox_SelectionChanged" Margin="0,0,12,0">
                 <ComboBoxItem Content="100%" Tag="100" />
@@ -252,9 +258,10 @@
               </ComboBox>
             </StackPanel>
             <StackPanel Margin="12,8">
-              <TextBlock x:Name="SpellTitleText" FontSize="30" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="#FFF3D4" />
+              <TextBlock x:Name="SpellTitleText" FontSize="30" FontFamily="ITC Korinna"
+                         FontWeight="Bold" TextWrapping="Wrap" Foreground="#FFF3D4" />
               <TextBlock x:Name="SpellSourceText" Margin="0,4,0,0" FontSize="12" Foreground="#E1C99C"
-                         FontFamily="Consolas" TextWrapping="Wrap" />
+                         FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
             </StackPanel>
           </DockPanel>
           <Border Grid.Row="1" BorderBrush="#8A693E" BorderThickness="1"
@@ -268,21 +275,25 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <DockPanel Grid.Row="0" Margin="0,0,0,12">
+          <DockPanel Grid.Row="0" Margin="0,0,0,12" Background="{DynamicResource WoodBrush}">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
               <Button Content="Back" Click="OnlineBack_Click" />
               <Button Content="Forward" Click="OnlineForward_Click" />
               <Button Content="Start page" Click="OnlineStartPage_Click" />
+              <Button x:Name="OnlineBookmarkButton" Content="Bookmark page" Click="OnlineBookmark_Click"
+                      ToolTip="Add or remove this Complete Compendium page from bookmarks" />
               <Button Content="Open in browser…" Click="OnlineOpen_Click" />
             </StackPanel>
-            <StackPanel>
-              <TextBlock x:Name="OnlineTitleText" FontSize="30" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBlock x:Name="OnlineAddressText" Margin="0,4,0,0" FontSize="12" Foreground="#5B6268"
-                         FontFamily="Consolas" TextWrapping="Wrap" />
+            <StackPanel Margin="12,8">
+              <TextBlock x:Name="OnlineTitleText" FontSize="30" FontFamily="ITC Korinna"
+                         FontWeight="Bold" TextWrapping="Wrap" Foreground="#FFF3D4" />
+              <TextBlock x:Name="OnlineAddressText" Margin="0,4,0,0" FontSize="12" Foreground="#E1C99C"
+                         FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
             </StackPanel>
           </DockPanel>
-          <Border Grid.Row="1" BorderBrush="#C9C4B8" BorderThickness="1" Background="White">
-            <wv2:WebView2 x:Name="OnlineBrowser" />
+          <Border Grid.Row="1" BorderBrush="#8A693E" BorderThickness="1"
+                  Background="{DynamicResource ParchmentBrush}">
+            <wv2:WebView2 x:Name="OnlineBrowser" NavigationCompleted="OnlineBrowser_NavigationCompleted" />
           </Border>
         </Grid>
       </Grid>

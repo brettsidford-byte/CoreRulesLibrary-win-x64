@@ -17,6 +17,13 @@ namespace CoreRulesModern.Views;
 
 public partial class MainWindow : Window
 {
+    private enum ContextPanelMode
+    {
+        None,
+        BookContents,
+        Spell
+    }
+
     private readonly CoreRulesInstallationValidator _validator = new();
     private readonly CoreRulesInstallationLocator _locator = new();
     private readonly UserSettingsStore _settingsStore = new();
@@ -40,6 +47,9 @@ public partial class MainWindow : Window
     private string _activeFindText = string.Empty;
     private bool _initialisingFilters;
     private string? _contentsPagePath;
+    private ContextPanelMode _contextPanelMode;
+    private SpellRecord? _displayedMainSpell;
+    private SpellRecord? _previewedSpell;
 
     private bool UseLegacyDocumentBrowser =>
         _selectedDocument?.Kind == HtmlDocumentKind.Book &&
@@ -325,7 +335,12 @@ public partial class MainWindow : Window
             root.Items.Add(new TreeViewItem
             {
                 Header = page.PageTitle,
-                ToolTip = $"{page.DocumentTitle}\n{page.PagePath}",
+                ToolTip = page.LocationKind switch
+                {
+                    SavedLocationKind.Spell => $"Spell · {page.ResourceKey}",
+                    SavedLocationKind.Online => $"Complete Compendium\n{page.PagePath}",
+                    _ => $"{page.DocumentTitle}\n{page.PagePath}"
+                },
                 Tag = new SavedPageLink(page, bookmark)
             });
         }
@@ -454,6 +469,29 @@ public partial class MainWindow : Window
 
     private void OpenSavedPage(SavedPage savedPage)
     {
+        if (savedPage.LocationKind == SavedLocationKind.Spell)
+        {
+            var spell = _spells.FirstOrDefault(candidate =>
+                SpellResourceKey(candidate).Equals(savedPage.ResourceKey, StringComparison.OrdinalIgnoreCase));
+            if (spell is null)
+            {
+                MessageBox.Show(this, "This saved spell is no longer present in the spell databases.",
+                    "Open saved spell", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            ShowSpell(spell);
+            return;
+        }
+
+        if (savedPage.LocationKind == SavedLocationKind.Online)
+        {
+            if (!Uri.TryCreate(savedPage.PagePath, UriKind.Absolute, out var address)) return;
+            ShowOnlineResource(
+                new OnlineResourceEntry("Complete Compendium", "https://www.completecompendium.com/"),
+                address.AbsoluteUri);
+            return;
+        }
+
         var document = FindSavedDocument(savedPage.DocumentStartPage, savedPage.PagePath);
         if (document is null || !File.Exists(savedPage.PagePath))
         {
@@ -483,6 +521,7 @@ public partial class MainWindow : Window
     private async void ShowDocument(HtmlDocumentEntry document, string? pagePath = null)
     {
         _selectedDocument = document;
+        _displayedMainSpell = null;
         _documentPages = FindDocumentPages(document);
         var targetPage = Path.GetFullPath(pagePath ?? document.StartPage);
         _documentPageIndex = FindDocumentPageIndex(targetPage);
@@ -539,8 +578,20 @@ public partial class MainWindow : Window
 
     private async void ShowSpell(SpellRecord spell)
     {
+        if (BookContentsPanel.Visibility == Visibility.Visible)
+        {
+            await ShowSpellInContextPanelAsync(spell);
+            return;
+        }
+
+        await ShowSpellInMainViewerAsync(spell);
+    }
+
+    private async Task ShowSpellInMainViewerAsync(SpellRecord spell)
+    {
         _selectedDocument = null;
         _selectedOnlineResource = null;
+        _displayedMainSpell = spell;
         HideBookContents();
         WelcomePanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Collapsed;
@@ -550,6 +601,7 @@ public partial class MainWindow : Window
         SpellSourceText.Text = spell.DatabaseKind == SpellDatabaseKind.Core
             ? "Database\\Spells.dat · original Core Rules record"
             : "UserDbas\\SpellsU.dat · imported or user-created record";
+        UpdateSpellBookmarkButtons();
         try
         {
             await SpellBrowser.EnsureCoreWebView2Async();
@@ -564,9 +616,35 @@ public partial class MainWindow : Window
         FooterStatus.Text = $"Displaying {spell.Name} · read-only";
     }
 
-    private async void ShowOnlineResource(OnlineResourceEntry resource)
+    private async Task ShowSpellInContextPanelAsync(SpellRecord spell)
+    {
+        _contextPanelMode = ContextPanelMode.Spell;
+        _contentsPagePath = null;
+        _previewedSpell = spell;
+        BookContentsTitleText.Text = $"Spell — {spell.Name}";
+        ContentsToggleButton.Content = "Hide spell preview";
+        ContextBookmarkButton.Visibility = Visibility.Visible;
+        LegacyContentsBrowser.Visibility = Visibility.Collapsed;
+        ContentsBrowser.Visibility = Visibility.Visible;
+        try
+        {
+            await ContentsBrowser.EnsureCoreWebView2Async();
+            ContentsBrowser.ZoomFactor = 0.9;
+            ContentsBrowser.NavigateToString(CreateSpellHtml(spell));
+            UpdateSpellBookmarkButtons();
+            FooterStatus.Text = $"Previewing {spell.Name} · main viewer retained";
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"This spell could not be previewed.\n\n{exception.Message}",
+                "Preview spell", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async void ShowOnlineResource(OnlineResourceEntry resource, string? pageAddress = null)
     {
         _selectedDocument = null;
+        _displayedMainSpell = null;
         _selectedOnlineResource = resource;
         HideBookContents();
         WelcomePanel.Visibility = Visibility.Collapsed;
@@ -574,13 +652,15 @@ public partial class MainWindow : Window
         DocumentPanel.Visibility = Visibility.Collapsed;
         OnlinePanel.Visibility = Visibility.Visible;
         OnlineTitleText.Text = resource.Title;
-        OnlineAddressText.Text = resource.Address;
+        var targetAddress = pageAddress ?? resource.Address;
+        OnlineAddressText.Text = targetAddress;
+        OnlineBookmarkButton.IsEnabled = false;
 
         try
         {
             Mouse.OverrideCursor = Cursors.Wait;
             await OnlineBrowser.EnsureCoreWebView2Async();
-            OnlineBrowser.Source = new Uri(resource.Address);
+            OnlineBrowser.Source = new Uri(targetAddress);
             FooterStatus.Text = $"Displaying {resource.Title} · online resource";
         }
         catch (Exception exception)
@@ -1237,7 +1317,8 @@ public partial class MainWindow : Window
 
         var recentLimit = NormaliseRecentLimit(_settings.RecentPageLimit);
         var recent = (_settings.RecentPages ?? [])
-            .Where(page => !PathsEqual(page.PagePath, fullPath))
+            .Where(page => page.LocationKind != SavedLocationKind.Document ||
+                           !PathsEqual(page.PagePath, fullPath))
             .Prepend(savedPage)
             .Take(recentLimit)
             .ToArray();
@@ -1260,7 +1341,8 @@ public partial class MainWindow : Window
         if (path is null || !File.Exists(path)) return;
 
         var bookmarks = (_settings.Bookmarks ?? []).ToList();
-        var existingIndex = bookmarks.FindIndex(page => PathsEqual(page.PagePath, path));
+        var existingIndex = bookmarks.FindIndex(page =>
+            page.LocationKind == SavedLocationKind.Document && PathsEqual(page.PagePath, path));
         if (existingIndex >= 0)
         {
             bookmarks.RemoveAt(existingIndex);
@@ -1299,8 +1381,108 @@ public partial class MainWindow : Window
 
     private void UpdateBookmarkButton(string pagePath)
     {
-        var bookmarked = (_settings.Bookmarks ?? []).Any(page => PathsEqual(page.PagePath, pagePath));
+        var bookmarked = (_settings.Bookmarks ?? []).Any(page =>
+            page.LocationKind == SavedLocationKind.Document && PathsEqual(page.PagePath, pagePath));
         BookmarkPageButton.Content = bookmarked ? "Remove bookmark" : "Bookmark page";
+    }
+
+    private void SpellBookmark_Click(object sender, RoutedEventArgs e)
+    {
+        if (_displayedMainSpell is not null) ToggleSpellBookmark(_displayedMainSpell);
+    }
+
+    private void ContextBookmark_Click(object sender, RoutedEventArgs e)
+    {
+        if (_previewedSpell is not null) ToggleSpellBookmark(_previewedSpell);
+    }
+
+    private void ToggleSpellBookmark(SpellRecord spell)
+    {
+        ToggleBookmark(CreateSpellSavedPage(spell));
+        UpdateSpellBookmarkButtons();
+    }
+
+    private static SavedPage CreateSpellSavedPage(SpellRecord spell) => new(
+        "Spells",
+        string.Empty,
+        SpellResourceKey(spell),
+        spell.Name,
+        HtmlDocumentKind.Book,
+        HtmlDocumentCollection.None,
+        DateTimeOffset.Now,
+        SavedLocationKind.Spell,
+        SpellResourceKey(spell));
+
+    private static string SpellResourceKey(SpellRecord spell) =>
+        $"{spell.DatabaseKind}|{spell.Level}|{spell.Name}";
+
+    private void UpdateSpellBookmarkButtons()
+    {
+        if (_displayedMainSpell is not null)
+        {
+            SpellBookmarkButton.Content = IsSpellBookmarked(_displayedMainSpell)
+                ? "Remove bookmark"
+                : "Bookmark spell";
+        }
+        if (_previewedSpell is not null)
+        {
+            ContextBookmarkButton.Content = IsSpellBookmarked(_previewedSpell)
+                ? "Remove bookmark"
+                : "Bookmark spell";
+        }
+    }
+
+    private bool IsSpellBookmarked(SpellRecord spell)
+    {
+        var key = SpellResourceKey(spell);
+        return (_settings.Bookmarks ?? []).Any(page =>
+            page.LocationKind == SavedLocationKind.Spell &&
+            string.Equals(page.ResourceKey, key, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void OnlineBookmark_Click(object sender, RoutedEventArgs e)
+    {
+        if (OnlineBrowser.Source is not { } address || GetCompendiumPageName(address) is not { } title) return;
+        ToggleBookmark(CreateOnlineSavedPage(address, title));
+        UpdateOnlineBookmarkButton(address);
+    }
+
+    private void ToggleBookmark(SavedPage target)
+    {
+        var bookmarks = (_settings.Bookmarks ?? []).ToList();
+        var existingIndex = bookmarks.FindIndex(page => SavedLocationsEqual(page, target));
+        if (existingIndex >= 0)
+        {
+            bookmarks.RemoveAt(existingIndex);
+        }
+        else
+        {
+            bookmarks.Add(target);
+        }
+
+        _settings = _settings with { Bookmarks = bookmarks.ToArray() };
+        SaveSettings();
+        PopulateSavedPages(BookmarksRoot, bookmarks, true, SearchBox.Text.Trim());
+    }
+
+    private static bool SavedLocationsEqual(SavedPage first, SavedPage second)
+    {
+        if (first.LocationKind != second.LocationKind) return false;
+        return first.LocationKind switch
+        {
+            SavedLocationKind.Document => PathsEqual(first.PagePath, second.PagePath),
+            SavedLocationKind.Spell => string.Equals(
+                first.ResourceKey, second.ResourceKey, StringComparison.OrdinalIgnoreCase),
+            SavedLocationKind.Online => NormaliseOnlineAddress(first.PagePath).Equals(
+                NormaliseOnlineAddress(second.PagePath), StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    private static string NormaliseOnlineAddress(string address)
+    {
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri)) return address.TrimEnd('/');
+        return uri.GetLeftPart(UriPartial.Path).TrimEnd('/');
     }
 
     private static bool PathsEqual(string? first, string? second)
@@ -1549,8 +1731,11 @@ public partial class MainWindow : Window
 
     private async Task ShowBookContentsAsync(HtmlDocumentEntry document)
     {
+        _contextPanelMode = ContextPanelMode.BookContents;
         _contentsPagePath = Path.GetFullPath(document.StartPage);
+        _previewedSpell = null;
         BookContentsTitleText.Text = $"Contents — {document.Title}";
+        ContextBookmarkButton.Visibility = Visibility.Collapsed;
         ContentsToggleButton.Visibility = Visibility.Visible;
         SetBookContentsPanelVisible(_settings.BookContentsVisible);
 
@@ -1581,18 +1766,28 @@ public partial class MainWindow : Window
 
     private void HideBookContents()
     {
+        _contextPanelMode = ContextPanelMode.None;
         _contentsPagePath = null;
+        _previewedSpell = null;
+        ContextBookmarkButton.Visibility = Visibility.Collapsed;
         ContentsToggleButton.Visibility = Visibility.Collapsed;
         SetBookContentsPanelVisible(false);
     }
 
-    private void ToggleBookContents_Click(object sender, RoutedEventArgs e)
+    private async void ToggleBookContents_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedDocument?.Kind != HtmlDocumentKind.Book) return;
 
         var show = BookContentsPanel.Visibility != Visibility.Visible;
         _settings = _settings with { BookContentsVisible = show };
-        SetBookContentsPanelVisible(show);
+        if (show)
+        {
+            await ShowBookContentsAsync(_selectedDocument);
+        }
+        else
+        {
+            SetBookContentsPanelVisible(false);
+        }
         SaveSettings();
     }
 
@@ -1610,6 +1805,7 @@ public partial class MainWindow : Window
         object sender,
         System.Windows.Navigation.NavigatingCancelEventArgs e)
     {
+        if (_contextPanelMode != ContextPanelMode.BookContents) return;
         if (e.Uri is not { IsFile: true } address ||
             string.IsNullOrWhiteSpace(_contentsPagePath) ||
             PathsEqual(address.LocalPath, _contentsPagePath)) return;
@@ -1640,6 +1836,7 @@ public partial class MainWindow : Window
         object? sender,
         CoreWebView2NavigationStartingEventArgs e)
     {
+        if (_contextPanelMode != ContextPanelMode.BookContents) return;
         if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out var address) ||
             !address.IsFile ||
             string.IsNullOrWhiteSpace(_contentsPagePath) ||
@@ -1655,7 +1852,80 @@ public partial class MainWindow : Window
     {
         if (!e.IsSuccess) return;
         ContentsBrowser.ZoomFactor = 0.9;
-        await ApplyDocumentStyleAsync(ContentsBrowser.CoreWebView2);
+        if (_contextPanelMode == ContextPanelMode.BookContents)
+        {
+            await ApplyDocumentStyleAsync(ContentsBrowser.CoreWebView2);
+        }
+    }
+
+    private void OnlineBrowser_NavigationCompleted(
+        object? sender,
+        CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (!e.IsSuccess || OnlineBrowser.Source is not { } address) return;
+
+        OnlineAddressText.Text = address.AbsoluteUri;
+        var pageTitle = GetCompendiumPageName(address);
+        OnlineBookmarkButton.IsEnabled = pageTitle is not null;
+        UpdateOnlineBookmarkButton(address);
+        if (pageTitle is not null) TrackOnlinePage(address, pageTitle);
+    }
+
+    private void TrackOnlinePage(Uri address, string pageTitle)
+    {
+        var savedPage = CreateOnlineSavedPage(address, pageTitle);
+        var recentLimit = NormaliseRecentLimit(_settings.RecentPageLimit);
+        var recent = (_settings.RecentPages ?? [])
+            .Where(page => !SavedLocationsEqual(page, savedPage))
+            .Prepend(savedPage)
+            .Take(recentLimit)
+            .ToArray();
+        _settings = _settings with { RecentPages = recent };
+        PopulateSavedPages(RecentPagesRoot, recent, false, SearchBox.Text.Trim());
+        SaveSettings();
+    }
+
+    private static SavedPage CreateOnlineSavedPage(Uri address, string pageTitle) => new(
+        "Complete Compendium",
+        "https://www.completecompendium.com/",
+        address.AbsoluteUri,
+        pageTitle,
+        HtmlDocumentKind.Book,
+        HtmlDocumentCollection.None,
+        DateTimeOffset.Now,
+        SavedLocationKind.Online,
+        NormaliseOnlineAddress(address.AbsoluteUri));
+
+    private static string? GetCompendiumPageName(Uri address)
+    {
+        if (!address.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+            !address.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return null;
+        if (!address.Host.Equals("completecompendium.com", StringComparison.OrdinalIgnoreCase) &&
+            !address.Host.EndsWith(".completecompendium.com", StringComparison.OrdinalIgnoreCase)) return null;
+
+        var segments = address.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0) return null;
+        var name = Uri.UnescapeDataString(segments[^1]).Replace('-', ' ').Replace('_', ' ').Trim();
+        if (name.Length == 0) return null;
+        if (name.Equals("index", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("index.htm", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("index.html", StringComparison.OrdinalIgnoreCase) ||
+            name.Equals("home", StringComparison.OrdinalIgnoreCase)) return null;
+        return char.ToUpper(name[0], System.Globalization.CultureInfo.CurrentCulture) + name[1..];
+    }
+
+    private void UpdateOnlineBookmarkButton(Uri address)
+    {
+        var pageTitle = GetCompendiumPageName(address);
+        if (pageTitle is null)
+        {
+            OnlineBookmarkButton.Content = "Bookmark page";
+            return;
+        }
+
+        var target = CreateOnlineSavedPage(address, pageTitle);
+        var bookmarked = (_settings.Bookmarks ?? []).Any(page => SavedLocationsEqual(page, target));
+        OnlineBookmarkButton.Content = bookmarked ? "Remove bookmark" : "Bookmark page";
     }
 
     private void OpenDocument_Click(object sender, RoutedEventArgs e)
@@ -1693,7 +1963,8 @@ public partial class MainWindow : Window
         if (_selectedOnlineResource is null) return;
         try
         {
-            Process.Start(new ProcessStartInfo(_selectedOnlineResource.Address) { UseShellExecute = true });
+            var address = OnlineBrowser.Source?.AbsoluteUri ?? _selectedOnlineResource.Address;
+            Process.Start(new ProcessStartInfo(address) { UseShellExecute = true });
         }
         catch (Exception exception)
         {
