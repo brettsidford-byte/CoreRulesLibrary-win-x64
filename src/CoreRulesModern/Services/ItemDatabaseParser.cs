@@ -114,7 +114,7 @@ public sealed class ItemDatabaseParser
         for (var offset = nameOffset; offset < end; offset++)
         {
             var value = bytes[offset];
-            if (value is >= 32 and != 127)
+            if (value >= 32 && value != 127)
             {
                 run.Add(value);
                 continue;
