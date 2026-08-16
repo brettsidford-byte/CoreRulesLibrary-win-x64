@@ -727,8 +727,9 @@ public partial class MainWindow : Window
             else
             {
                 html.Append("<div class=\"description\">").Append(helpTopic.DescriptionHtml).Append("</div>");
-                html.Append("<p class=\"muted\">Description recovered from ")
-                    .Append(Encode(helpTopic.Title)).Append(".</p>");
+                html.Append("<p class=\"muted\">")
+                    .Append(Encode(spell.Name)).Append(" — ")
+                    .Append(Encode(GetSpellHelpBookName(helpTopic.PagePath))).Append("</p>");
             }
         }
         else
@@ -738,6 +739,36 @@ public partial class MainWindow : Window
 
         html.Append("</body></html>");
         return html.ToString();
+    }
+
+    private static string GetSpellHelpBookName(string pagePath)
+    {
+        var folder = Path.GetFileName(Path.GetDirectoryName(pagePath)) ?? string.Empty;
+        return folder.ToUpperInvariant() switch
+        {
+            "PHB" => "Player's Handbook",
+            "DMG" => "Dungeon Master Guide",
+            "MM" => "Monstrous Manual",
+            "AEG" => "The Complete Book of Arms and Equipment",
+            "CBH" => "The Complete Bard's Handbook",
+            "HLC" => "Dungeon Master Option: High-Level Campaigns",
+            "CDH" => "The Complete Druid's Handbook",
+            "CBD" => "The Complete Book of Dwarves",
+            "CBE" => "The Complete Book of Elves",
+            "CFH" => "The Complete Fighter's Handbook",
+            "CBGH" => "The Complete Book of Gnomes & Halflings",
+            "CBN" => "The Complete Book of Necromancers",
+            "CPAH" => "The Complete Paladin's Handbook",
+            "CT" => "Player's Option: Combat & Tactics",
+            "SM" => "Player's Option: Spells & Magic",
+            "SP" => "Player's Option: Skills & Powers",
+            "CPRH" => "The Complete Priest's Handbook",
+            "CRH" => "The Complete Ranger's Handbook",
+            "CTH" => "The Complete Thief's Handbook",
+            "TM" => "Tome of Magic",
+            "CWH" => "The Complete Wizard's Handbook",
+            _ => string.IsNullOrWhiteSpace(folder) ? "Core Rules" : folder.Replace('_', ' ')
+        };
     }
 
     private static void AppendBadge(StringBuilder html, string value) =>
