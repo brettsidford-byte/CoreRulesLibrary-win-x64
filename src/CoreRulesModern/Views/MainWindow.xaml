@@ -29,7 +29,7 @@
       </DockPanel>
     </Border>
 
-    <Grid Grid.Row="1">
+    <Grid Grid.Row="1" Background="{DynamicResource WoodBrush}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="300" MinWidth="220" />
         <ColumnDefinition Width="5" />
