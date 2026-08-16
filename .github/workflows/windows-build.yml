@@ -18,6 +18,8 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 20
+    outputs:
+      app-version: ${{ steps.version.outputs.value }}
 
     steps:
       - name: Check out source
@@ -35,12 +37,14 @@ jobs:
         run: dotnet build CoreRulesModern.sln --configuration Release --no-restore
 
       - name: Read application version
+        id: version
         shell: pwsh
         run: |
           [xml]$project = Get-Content src/CoreRulesModern/CoreRulesModern.csproj
           $version = ($project.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1).Trim()
           if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid application version: $version" }
           "APP_VERSION=$version" | Add-Content $env:GITHUB_ENV
+          "value=$version" | Add-Content $env:GITHUB_OUTPUT
 
       - name: Run regression checks
         run: dotnet run --project tests/CoreRulesModern.SpellParserChecks/CoreRulesModern.SpellParserChecks.csproj --configuration Release --no-build
@@ -112,3 +116,36 @@ jobs:
             artifacts/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
+
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: CoreRulesLibrary-v${{ needs.build.outputs.app-version }}
+          path: artifacts
+
+      - name: Publish permanent GitHub Release
+        env:
+          APP_VERSION: ${{ needs.build.outputs.app-version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${APP_VERSION}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; leaving it unchanged."
+            exit 0
+          fi
+          gh release create "$tag" \
+            "artifacts/CoreRulesLibrary-win-x64-self-contained-$tag.zip#Self-contained Windows x64 (recommended)" \
+            "artifacts/CoreRulesLibrary-win-x64-compact-$tag.zip#Compact Windows x64 (.NET 8 Desktop Runtime required)" \
+            "artifacts/SHA256SUMS.txt#SHA-256 checksums" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Core Rules Library $tag" \
+            --generate-notes
