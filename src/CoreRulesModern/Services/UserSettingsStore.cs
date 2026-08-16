@@ -52,6 +52,12 @@ public sealed class UserSettingsStore
             RecentPageLimit = settings.RecentPageLimit is 10 or 20 or 30 or 50
                 ? settings.RecentPageLimit
                 : 20,
+            BookReferenceCoverHeight = settings.BookReferenceCoverHeight is >= 120 and <= 1000
+                ? settings.BookReferenceCoverHeight
+                : 240,
+            BookContentsWidth = settings.BookContentsWidth is >= 220 and <= 1000
+                ? settings.BookContentsWidth
+                : 300,
             Bookmarks = settings.Bookmarks ?? [],
             RecentPages = settings.RecentPages ?? []
         };
@@ -90,5 +96,7 @@ public sealed class UserSettingsStore
         string SpellSchoolSphereFilter = "All schools and spheres",
         string SpellComponentFilter = "All",
         string SpellSourceFilter = "All",
-        bool BookContentsVisible = true);
+        bool BookContentsVisible = true,
+        double BookReferenceCoverHeight = 240,
+        double BookContentsWidth = 300);
 }

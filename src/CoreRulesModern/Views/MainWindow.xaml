@@ -23,7 +23,7 @@
           <Button Content="Settings…" Click="Settings_Click" FontSize="11"
                   Height="22" MinHeight="0" Padding="7,0" Margin="2,0" />
         </StackPanel>
-        <TextBlock Text="AD&amp;D Core Rule Library" Foreground="#E34B3F" FontSize="17"
+        <TextBlock Text="AD&amp;D Core Rules Library" Foreground="#E34B3F" FontSize="17"
                    FontFamily="Friz Quadrata" FontWeight="Bold"
                    VerticalAlignment="Center" />
       </DockPanel>
@@ -128,12 +128,46 @@
                        Foreground="#FFF3D4" TextTrimming="CharacterEllipsis" />
           </DockPanel>
           <Grid Grid.Row="1">
-            <WebBrowser x:Name="LegacyContentsBrowser" Visibility="Collapsed"
-                        Navigating="LegacyContentsBrowser_Navigating"
-                        LoadCompleted="LegacyContentsBrowser_LoadCompleted" />
-            <wv2:WebView2 x:Name="ContentsBrowser" Visibility="Collapsed"
-                          NavigationStarting="ContentsBrowser_NavigationStarting"
-                          NavigationCompleted="ContentsBrowser_NavigationCompleted" />
+            <Grid x:Name="BookReferenceSplitGrid">
+              <Grid.RowDefinitions>
+                <RowDefinition x:Name="CoverLabelRow" Height="Auto" />
+                <RowDefinition x:Name="CoverViewerRow" Height="*" MinHeight="120" />
+                <RowDefinition x:Name="ReferenceSplitterRow" Height="6" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" MinHeight="120" />
+              </Grid.RowDefinitions>
+              <TextBlock Grid.Row="0" Text="Page 1 / Cover" Padding="8,4" FontWeight="Bold"
+                         Background="{DynamicResource WoodBrush}" Foreground="#FFF3D4" />
+              <Grid Grid.Row="1">
+                <Border x:Name="ManualCoverSurface" Background="Black" Visibility="Collapsed">
+                  <Image x:Name="ManualCoverImage" Stretch="Uniform" StretchDirection="Both"
+                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                         RenderOptions.BitmapScalingMode="HighQuality" />
+                </Border>
+                <WebBrowser x:Name="LegacyCoverBrowser" Visibility="Collapsed"
+                            Navigating="LegacyCoverBrowser_Navigating"
+                            LoadCompleted="LegacyCoverBrowser_LoadCompleted" />
+                <wv2:WebView2 x:Name="CoverBrowser" Visibility="Collapsed"
+                              NavigationStarting="CoverBrowser_NavigationStarting"
+                              NavigationCompleted="CoverBrowser_NavigationCompleted" />
+              </Grid>
+              <GridSplitter x:Name="ReferenceGridSplitter" Grid.Row="2" Height="6"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                            Background="{DynamicResource WoodBrush}" Cursor="SizeNS"
+                            ToolTip="Drag to resize the cover and contents panes" />
+              <TextBlock Grid.Row="3" Text="Page 2 / Contents" Padding="8,4" FontWeight="Bold"
+                         Background="{DynamicResource WoodBrush}" Foreground="#FFF3D4" />
+              <Grid Grid.Row="4">
+                <WebBrowser x:Name="LegacyContentsBrowser" Visibility="Collapsed"
+                            Navigating="LegacyContentsBrowser_Navigating"
+                            LoadCompleted="LegacyContentsBrowser_LoadCompleted" />
+                <wv2:WebView2 x:Name="ContentsBrowser" Visibility="Collapsed"
+                              NavigationStarting="ContentsBrowser_NavigationStarting"
+                              NavigationCompleted="ContentsBrowser_NavigationCompleted" />
+              </Grid>
+            </Grid>
+            <wv2:WebView2 x:Name="SpellContextBrowser" Visibility="Collapsed" />
           </Grid>
         </Grid>
       </Border>
