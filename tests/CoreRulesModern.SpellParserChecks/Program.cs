@@ -37,7 +37,10 @@ try
         // Expected: malformed records must fail safely.
     }
 
-    Console.WriteLine("Spell parser checks passed.");
+    CheckSettingsStore(temporaryFolder);
+    CheckBrowserSecurityPolicy(temporaryFolder);
+
+    Console.WriteLine("Parser, settings reliability and browser security checks passed.");
 }
 finally
 {
@@ -93,4 +96,48 @@ void WriteArchiveString(BinaryWriter writer, string value)
 static void Require(bool condition, string message)
 {
     if (!condition) throw new InvalidOperationException(message);
+}
+
+static void CheckSettingsStore(string temporaryFolder)
+{
+    var settingsPath = Path.Combine(temporaryFolder, "settings", "settings.json");
+    var store = new UserSettingsStore(settingsPath);
+    var first = new UserSettingsStore.UserSettings(Scale: 150, RecentPageLimit: 30);
+    store.Save(first);
+    Require(store.Load().Scale == 150, "Settings did not survive a save/load round trip.");
+
+    store.Save(first with { Scale = 999, RecentPageLimit = 999 });
+    var normalised = store.Load();
+    Require(normalised.Scale == 125, "Invalid document scale was not normalised.");
+    Require(normalised.RecentPageLimit == 20, "Invalid recent-page limit was not normalised.");
+    Require(File.Exists(settingsPath + ".bak"), "Atomic settings replacement did not retain a backup.");
+
+    File.WriteAllText(settingsPath, "{not valid JSON");
+    var recovered = store.Load();
+    Require(recovered.Scale == 150 && recovered.RecentPageLimit == 30,
+        "Corrupt settings did not recover from the last known-good backup.");
+}
+
+static void CheckBrowserSecurityPolicy(string temporaryFolder)
+{
+    var library = Path.Combine(temporaryFolder, "library");
+    var sibling = Path.Combine(temporaryFolder, "library-elsewhere");
+    Directory.CreateDirectory(library);
+    Directory.CreateDirectory(sibling);
+
+    Require(BrowserSecurityPolicy.IsLocalPageWithin(
+        new Uri(Path.Combine(library, "index.htm")), [library]),
+        "A page inside the selected library was blocked.");
+    Require(!BrowserSecurityPolicy.IsLocalPageWithin(
+        new Uri(Path.Combine(sibling, "index.htm")), [library]),
+        "A sibling path escaped the selected library boundary.");
+    Require(BrowserSecurityPolicy.IsAllowedOnlineAddress(
+        new Uri("https://www.completecompendium.com/page")),
+        "The permitted online resource was blocked.");
+    Require(!BrowserSecurityPolicy.IsAllowedOnlineAddress(
+        new Uri("http://www.completecompendium.com/page")),
+        "Unencrypted online navigation was permitted.");
+    Require(!BrowserSecurityPolicy.IsAllowedOnlineAddress(
+        new Uri("https://completecompendium.com.example/page")),
+        "A lookalike host was permitted.");
 }

@@ -9,11 +9,15 @@
     <SolidColorBrush x:Key="InkBrush" Color="{StaticResource InkColour}" />
     <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource PanelColour}" />
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColour}" />
+    <!-- Safe startup fallbacks. MainWindow replaces these with texture brushes
+         after its XAML has loaded, so a missing asset can never prevent launch. -->
+    <SolidColorBrush x:Key="WoodBrush" Color="#3B2114" />
+    <SolidColorBrush x:Key="ParchmentBrush" Color="#F5E8C8" />
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI" />
       <Setter Property="FontSize" Value="14" />
       <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
-      <Setter Property="Background" Value="#FBFAF6" />
+      <Setter Property="Background" Value="{DynamicResource ParchmentBrush}" />
     </Style>
     <Style TargetType="Button">
       <Setter Property="Padding" Value="14,8" />
@@ -22,4 +26,3 @@
     </Style>
   </Application.Resources>
 </Application>
-

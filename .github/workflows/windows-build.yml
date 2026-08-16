@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: windows-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -17,7 +21,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -30,7 +34,15 @@ jobs:
       - name: Build
         run: dotnet build CoreRulesModern.sln --configuration Release --no-restore
 
-      - name: Check spell parser
+      - name: Read application version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content src/CoreRulesModern/CoreRulesModern.csproj
+          $version = ($project.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid application version: $version" }
+          "APP_VERSION=$version" | Add-Content $env:GITHUB_ENV
+
+      - name: Run regression checks
         run: dotnet run --project tests/CoreRulesModern.SpellParserChecks/CoreRulesModern.SpellParserChecks.csproj --configuration Release --no-build
 
       - name: Publish self-contained Windows application
@@ -41,15 +53,9 @@ jobs:
           --self-contained true
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
           --output artifacts/CoreRulesLibrary-win-x64
-
-      - name: Upload executable
-        uses: actions/upload-artifact@v4
-        with:
-          name: CoreRulesLibrary-win-x64
-          path: artifacts/CoreRulesLibrary-win-x64/
-          if-no-files-found: error
-          retention-days: 30
 
       - name: Publish compact framework-dependent application
         run: >-
@@ -63,14 +69,46 @@ jobs:
           -p:DebugSymbols=false
           --output artifacts/CoreRulesLibrary-win-x64-compact
 
-      - name: Remove documentation from compact package
+      - name: Remove development-only files from publish folders
         shell: pwsh
-        run: Get-ChildItem artifacts/CoreRulesLibrary-win-x64-compact -Filter *.xml | Remove-Item -Force
+        run: |
+          @('artifacts/CoreRulesLibrary-win-x64', 'artifacts/CoreRulesLibrary-win-x64-compact') | ForEach-Object {
+            Get-ChildItem $_ -Recurse -Include *.xml,*.pdb | Remove-Item -Force
+          }
 
-      - name: Upload compact executable
-        uses: actions/upload-artifact@v4
+      - name: Package and checksum release artefacts
+        shell: pwsh
+        run: |
+          $version = $env:APP_VERSION
+          $selfContained = "CoreRulesLibrary-win-x64-self-contained-v$version.zip"
+          $compact = "CoreRulesLibrary-win-x64-compact-v$version.zip"
+          Compress-Archive -Path artifacts/CoreRulesLibrary-win-x64/* -DestinationPath "artifacts/$selfContained"
+          Compress-Archive -Path artifacts/CoreRulesLibrary-win-x64-compact/* -DestinationPath "artifacts/$compact"
+          @($selfContained, $compact) | ForEach-Object {
+            $hash = (Get-FileHash "artifacts/$_" -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $_" | Add-Content artifacts/SHA256SUMS.txt
+          }
+
+      - name: Verify packaged archives
+        shell: pwsh
+        run: |
+          $archives = Get-ChildItem artifacts -Filter *.zip
+          if ($archives.Count -ne 2) { throw "Expected exactly two release archives." }
+          foreach ($archive in $archives) {
+            $destination = Join-Path $env:RUNNER_TEMP $archive.BaseName
+            Expand-Archive $archive.FullName $destination
+            if (-not (Test-Path (Join-Path $destination "CoreRulesLibrary.exe"))) {
+              throw "CoreRulesLibrary.exe is missing from $($archive.Name)."
+            }
+          }
+
+      - name: Upload release packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: CoreRulesLibrary-win-x64-compact
-          path: artifacts/CoreRulesLibrary-win-x64-compact/
+          name: CoreRulesLibrary-v${{ env.APP_VERSION }}
+          path: |
+            artifacts/CoreRulesLibrary-win-x64-self-contained-v${{ env.APP_VERSION }}.zip
+            artifacts/CoreRulesLibrary-win-x64-compact-v${{ env.APP_VERSION }}.zip
+            artifacts/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30

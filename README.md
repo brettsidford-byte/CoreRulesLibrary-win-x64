@@ -9,6 +9,11 @@ It does not read or modify Core Rules databases or character `.dat` records. Cha
 
 ## Features
 
+- Original AD&D 2nd Edition Core Rules books use the legacy Windows WebBrowser
+  control (WebView1) for compatibility with their original WebHelp HTML.
+- Added Ravenloft books, character sheets, spells and online resources continue
+  to use Microsoft Edge WebView2.
+
 - separate Characters, grouped Books and levelled Spells navigation;
 - automatic discovery of the installed Core Rules WebHelp library;
 - automatic discovery of additional books beneath `WebHelp/Ravenloft`;
@@ -40,12 +45,13 @@ The selected folders can be changed at any time. To refresh a modified character
 
 ## Obtaining a build
 
-Open the repository's **Actions** page and select the latest successful **Windows build**. Two packages are provided:
+Open the repository's **Releases** page and select the latest version. Each release contains two versioned ZIP packages and `SHA256SUMS.txt`:
 
-- `CoreRulesLibrary-win-x64` is self-contained and requires no separate .NET installation.
-- `CoreRulesLibrary-win-x64-compact` uses the installed .NET 8 Desktop Runtime and is substantially smaller.
+- The **self-contained** package is recommended and requires no separate .NET installation.
+- The **compact** package uses the installed .NET 8 Desktop Runtime and is substantially smaller.
 
 The compact package requires the [.NET 8 Desktop Runtime for Windows x64](https://dotnet.microsoft.com/download/dotnet/8.0). The application in either package is `CoreRulesLibrary.exe`.
+Use `Get-FileHash <zip> -Algorithm SHA256` in PowerShell and compare it with `SHA256SUMS.txt` before extracting a downloaded build.
 
 ## Original content
 
