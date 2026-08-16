@@ -3,7 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace CoreRulesModern.Services;
 
-public sealed record BookContentsLocation(string PagePath, string? SectionTitle = null);
+public sealed record BookContentsLocation(
+    string PagePath,
+    string? SectionTitle = null,
+    string? CoverPagePath = null);
 
 public static partial class BookContentsResolver
 {
@@ -33,6 +36,17 @@ public static partial class BookContentsResolver
         var folder = Path.GetDirectoryName(Path.GetFullPath(currentPage));
         if (folder is null) return fallback;
 
+        string? coverPage = null;
+        foreach (var extension in new[] { ".htm", ".html" })
+        {
+            var candidate = Path.Combine(folder, prefix + "_00" + extension);
+            if (File.Exists(candidate))
+            {
+                coverPage = Path.GetFullPath(candidate);
+                break;
+            }
+        }
+
         foreach (var extension in new[] { ".htm", ".html" })
         {
             var candidate = Path.Combine(folder, prefix + "_contents" + extension);
@@ -40,11 +54,15 @@ public static partial class BookContentsResolver
             {
                 return new BookContentsLocation(
                     Path.GetFullPath(candidate),
-                    VanRichtenGuideTitles[prefix]);
+                    VanRichtenGuideTitles[prefix],
+                    coverPage);
             }
         }
 
-        return fallback;
+        return new BookContentsLocation(
+            fallback.PagePath,
+            VanRichtenGuideTitles[prefix],
+            coverPage);
     }
 
     [GeneratedRegex(@"^(vr0[1-9])_\d+\.html?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]

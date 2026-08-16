@@ -47,6 +47,7 @@ public partial class MainWindow : Window
     private string _activeFindText = string.Empty;
     private bool _initialisingFilters;
     private string? _contentsPagePath;
+    private string? _coverPagePath;
     private ContextPanelMode _contextPanelMode;
     private SpellRecord? _displayedMainSpell;
     private SpellRecord? _previewedSpell;
@@ -625,19 +626,20 @@ public partial class MainWindow : Window
     {
         _contextPanelMode = ContextPanelMode.Spell;
         _contentsPagePath = null;
+        _coverPagePath = null;
         _previewedSpell = spell;
         BookContentsTitleText.Text = $"Spell — {spell.Name}";
         ContentsToggleButton.Visibility = Visibility.Visible;
         ContentsToggleButton.Content = "Hide spell preview";
         ContextBookmarkButton.Visibility = Visibility.Visible;
-        LegacyContentsBrowser.Visibility = Visibility.Collapsed;
-        ContentsBrowser.Visibility = Visibility.Visible;
+        BookReferenceSplitGrid.Visibility = Visibility.Collapsed;
+        SpellContextBrowser.Visibility = Visibility.Visible;
         try
         {
-            await ContentsBrowser.EnsureCoreWebView2Async();
-            HardenWebView(ContentsBrowser.CoreWebView2);
-            ContentsBrowser.ZoomFactor = 0.9;
-            ContentsBrowser.NavigateToString(CreateSpellHtml(spell));
+            await SpellContextBrowser.EnsureCoreWebView2Async();
+            HardenWebView(SpellContextBrowser.CoreWebView2);
+            SpellContextBrowser.ZoomFactor = 0.9;
+            SpellContextBrowser.NavigateToString(CreateSpellHtml(spell));
             UpdateSpellBookmarkButtons();
             FooterStatus.Text = $"Previewing {spell.Name} · main viewer retained";
         }
@@ -1810,12 +1812,16 @@ public partial class MainWindow : Window
         _contextPanelMode = ContextPanelMode.BookContents;
         var contents = BookContentsResolver.Resolve(document.StartPage, currentPage);
         _contentsPagePath = contents.PagePath;
+        _coverPagePath = contents.CoverPagePath;
         _previewedSpell = null;
         BookContentsTitleText.Text = contents.SectionTitle is null
             ? $"Contents — {document.Title}"
             : $"Contents — {contents.SectionTitle}";
         ContextBookmarkButton.Visibility = Visibility.Collapsed;
         ContentsToggleButton.Visibility = Visibility.Visible;
+        SpellContextBrowser.Visibility = Visibility.Collapsed;
+        BookReferenceSplitGrid.Visibility = Visibility.Visible;
+        SetCoverPaneVisible(_coverPagePath is not null);
         SetBookContentsPanelVisible(_settings.BookContentsVisible);
 
         var address = new Uri(_contentsPagePath);
@@ -1842,6 +1848,11 @@ public partial class MainWindow : Window
                 ContentsBrowser.Source = address;
             }
         }
+
+        if (_coverPagePath is not null)
+        {
+            await ShowCoverPageAsync(new Uri(_coverPagePath));
+        }
     }
 
     private async Task UpdateBookContentsForPageAsync(string currentPage)
@@ -1851,7 +1862,12 @@ public partial class MainWindow : Window
 
         var contents = BookContentsResolver.Resolve(_selectedDocument.StartPage, currentPage);
         if (!string.IsNullOrWhiteSpace(_contentsPagePath) &&
-            PathsEqual(_contentsPagePath, contents.PagePath)) return;
+            PathsEqual(_contentsPagePath, contents.PagePath) &&
+            ((string.IsNullOrWhiteSpace(_coverPagePath) &&
+              string.IsNullOrWhiteSpace(contents.CoverPagePath)) ||
+             (!string.IsNullOrWhiteSpace(_coverPagePath) &&
+              !string.IsNullOrWhiteSpace(contents.CoverPagePath) &&
+              PathsEqual(_coverPagePath, contents.CoverPagePath)))) return;
 
         await ShowBookContentsAsync(_selectedDocument, currentPage);
     }
@@ -1860,6 +1876,7 @@ public partial class MainWindow : Window
     {
         _contextPanelMode = ContextPanelMode.None;
         _contentsPagePath = null;
+        _coverPagePath = null;
         _previewedSpell = null;
         ContextBookmarkButton.Visibility = Visibility.Collapsed;
         ContentsToggleButton.Visibility = Visibility.Collapsed;
@@ -1897,6 +1914,111 @@ public partial class MainWindow : Window
         BookContentsPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         BookContentsSplitter.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         ContentsToggleButton.Content = visible ? "Hide contents" : "Show contents";
+    }
+
+    private void SetCoverPaneVisible(bool visible)
+    {
+        CoverLabelRow.Height = visible ? GridLength.Auto : new GridLength(0);
+        CoverViewerRow.MinHeight = visible ? 120 : 0;
+        CoverViewerRow.Height = visible
+            ? new GridLength(_settings.BookReferenceCoverHeight)
+            : new GridLength(0);
+        ReferenceSplitterRow.Height = visible ? new GridLength(6) : new GridLength(0);
+        ReferenceGridSplitter.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        LegacyCoverBrowser.Visibility = Visibility.Collapsed;
+        CoverBrowser.Visibility = Visibility.Collapsed;
+    }
+
+    private async Task ShowCoverPageAsync(Uri address)
+    {
+        if (UseLegacyDocumentBrowser)
+        {
+            LegacyCoverBrowser.Visibility = Visibility.Visible;
+            if (LegacyCoverBrowser.Source is null ||
+                !PathsEqual(LegacyCoverBrowser.Source.LocalPath, address.LocalPath))
+            {
+                LegacyCoverBrowser.Navigate(address);
+            }
+            return;
+        }
+
+        CoverBrowser.Visibility = Visibility.Visible;
+        await CoverBrowser.EnsureCoreWebView2Async();
+        HardenWebView(CoverBrowser.CoreWebView2);
+        CoverBrowser.ZoomFactor = 0.9;
+        if (CoverBrowser.Source is null ||
+            !PathsEqual(CoverBrowser.Source.LocalPath, address.LocalPath))
+        {
+            CoverBrowser.Source = address;
+        }
+    }
+
+    private bool IsAllowedReferenceNavigation(Uri? address, string? referencePath)
+    {
+        return address is { IsFile: true } &&
+               BrowserSecurityPolicy.IsLocalPageWithin(address, [_settings.LibraryPath]) &&
+               !string.IsNullOrWhiteSpace(referencePath);
+    }
+
+    private void LegacyCoverBrowser_Navigating(
+        object sender,
+        System.Windows.Navigation.NavigatingCancelEventArgs e)
+    {
+        if (_contextPanelMode != ContextPanelMode.BookContents) return;
+        if (!IsAllowedReferenceNavigation(e.Uri, _coverPagePath))
+        {
+            e.Cancel = true;
+            FooterStatus.Text = "Blocked navigation outside the selected local library.";
+            return;
+        }
+        if (PathsEqual(e.Uri.LocalPath, _coverPagePath!)) return;
+
+        e.Cancel = true;
+        NavigateDocument(e.Uri);
+    }
+
+    private void LegacyCoverBrowser_LoadCompleted(
+        object sender,
+        System.Windows.Navigation.NavigationEventArgs e)
+    {
+        ApplyLegacyParagraphStyle(LegacyCoverBrowser);
+        try
+        {
+            dynamic? document = LegacyCoverBrowser.Document;
+            dynamic? body = document?.body;
+            if (body is not null) body.style.zoom = "90%";
+        }
+        catch
+        {
+            // The cover remains usable when a legacy DOM rejects zoom.
+        }
+    }
+
+    private void CoverBrowser_NavigationStarting(
+        object? sender,
+        CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (_contextPanelMode != ContextPanelMode.BookContents) return;
+        if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out var address) ||
+            !IsAllowedReferenceNavigation(address, _coverPagePath))
+        {
+            e.Cancel = true;
+            FooterStatus.Text = "Blocked navigation outside the selected local library.";
+            return;
+        }
+        if (PathsEqual(address.LocalPath, _coverPagePath!)) return;
+
+        e.Cancel = true;
+        NavigateDocument(address);
+    }
+
+    private async void CoverBrowser_NavigationCompleted(
+        object? sender,
+        CoreWebView2NavigationCompletedEventArgs e)
+    {
+        if (!e.IsSuccess) return;
+        CoverBrowser.ZoomFactor = 0.9;
+        await ApplyDocumentStyleAsync(CoverBrowser.CoreWebView2);
     }
 
     private void LegacyContentsBrowser_Navigating(
@@ -2119,7 +2241,10 @@ public partial class MainWindow : Window
             SpellSchoolSphereFilter = Convert.ToString(SpellSchoolSphereFilterBox.SelectedItem)
                                       ?? "All schools and spheres",
             SpellComponentFilter = Convert.ToString(SpellComponentFilterBox.SelectedValue) ?? "All",
-            SpellSourceFilter = Convert.ToString(SpellSourceFilterBox.SelectedValue) ?? "All"
+            SpellSourceFilter = Convert.ToString(SpellSourceFilterBox.SelectedValue) ?? "All",
+            BookReferenceCoverHeight = CoverViewerRow.ActualHeight >= 120
+                ? CoverViewerRow.ActualHeight
+                : _settings.BookReferenceCoverHeight
         };
         _settingsStore.Save(_settings);
     }

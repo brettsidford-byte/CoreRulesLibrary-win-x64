@@ -103,14 +103,19 @@ static void CheckSettingsStore(string temporaryFolder)
 {
     var settingsPath = Path.Combine(temporaryFolder, "settings", "settings.json");
     var store = new UserSettingsStore(settingsPath);
-    var first = new UserSettingsStore.UserSettings(Scale: 150, RecentPageLimit: 30);
+    var first = new UserSettingsStore.UserSettings(
+        Scale: 150, RecentPageLimit: 30, BookReferenceCoverHeight: 360);
     store.Save(first);
     Require(store.Load().Scale == 150, "Settings did not survive a save/load round trip.");
+    Require(store.Load().BookReferenceCoverHeight == 360,
+        "The cover/contents splitter position did not survive a save/load round trip.");
 
-    store.Save(first with { Scale = 999, RecentPageLimit = 999 });
+    store.Save(first with { Scale = 999, RecentPageLimit = 999, BookReferenceCoverHeight = 20 });
     var normalised = store.Load();
     Require(normalised.Scale == 125, "Invalid document scale was not normalised.");
     Require(normalised.RecentPageLimit == 20, "Invalid recent-page limit was not normalised.");
+    Require(normalised.BookReferenceCoverHeight == 240,
+        "Invalid cover/contents splitter position was not normalised.");
     Require(File.Exists(settingsPath + ".bak"), "Atomic settings replacement did not retain a backup.");
 
     File.WriteAllText(settingsPath, "{not valid JSON");
@@ -150,14 +155,30 @@ static void CheckBookContentsResolver(string temporaryFolder)
     var startPage = Path.Combine(folder, "index.htm");
     var guidePage = Path.Combine(folder, "vr05_03.htm");
     var guideContents = Path.Combine(folder, "vr05_contents.htm");
+    var guideCover = Path.Combine(folder, "vr05_00.htm");
     File.WriteAllText(startPage, "<title>Van Richten Guides</title>");
     File.WriteAllText(guidePage, "<title>Liches</title>");
     File.WriteAllText(guideContents, "<title>Liches contents</title>");
+    File.WriteAllText(guideCover, "<title>Liches cover</title>");
 
     var resolved = BookContentsResolver.Resolve(startPage, guidePage);
     Require(resolved.PagePath == Path.GetFullPath(guideContents),
         "The active Van Richten guide did not select its own contents page.");
     Require(resolved.SectionTitle == "Liches", "The Van Richten guide title was not resolved.");
+    Require(resolved.CoverPagePath == Path.GetFullPath(guideCover),
+        "The active Van Richten guide did not select its own cover page.");
+
+    var guideWithoutContents = Path.Combine(folder, "vr09_03.htm");
+    var guideWithoutContentsCover = Path.Combine(folder, "vr09_00.htm");
+    File.WriteAllText(guideWithoutContents, "<title>Witches</title>");
+    File.WriteAllText(guideWithoutContentsCover, "<title>Witches cover</title>");
+    var fallbackContents = BookContentsResolver.Resolve(startPage, guideWithoutContents);
+    Require(fallbackContents.PagePath == Path.GetFullPath(startPage),
+        "A guide without a dedicated contents page did not use the collection contents.");
+    Require(fallbackContents.CoverPagePath == Path.GetFullPath(guideWithoutContentsCover),
+        "A guide without a dedicated contents page lost its own cover page.");
+    Require(fallbackContents.SectionTitle == "Witches",
+        "A guide without a dedicated contents page lost its guide title.");
 
     var unrelated = BookContentsResolver.Resolve(startPage, Path.Combine(folder, "index.htm"));
     Require(unrelated.PagePath == Path.GetFullPath(startPage),
