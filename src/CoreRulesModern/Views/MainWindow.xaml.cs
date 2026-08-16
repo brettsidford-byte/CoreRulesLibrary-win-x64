@@ -578,8 +578,11 @@ public partial class MainWindow : Window
 
     private async void ShowSpell(SpellRecord spell)
     {
-        if (BookContentsPanel.Visibility == Visibility.Visible)
+        var restoreContextPanelForCompendium =
+            _selectedOnlineResource is not null && _settings.BookContentsVisible;
+        if (BookContentsPanel.Visibility == Visibility.Visible || restoreContextPanelForCompendium)
         {
+            SetBookContentsPanelVisible(true);
             await ShowSpellInContextPanelAsync(spell);
             return;
         }
@@ -622,6 +625,7 @@ public partial class MainWindow : Window
         _contentsPagePath = null;
         _previewedSpell = spell;
         BookContentsTitleText.Text = $"Spell — {spell.Name}";
+        ContentsToggleButton.Visibility = Visibility.Visible;
         ContentsToggleButton.Content = "Hide spell preview";
         ContextBookmarkButton.Visibility = Visibility.Visible;
         LegacyContentsBrowser.Visibility = Visibility.Collapsed;
@@ -1776,10 +1780,16 @@ public partial class MainWindow : Window
 
     private async void ToggleBookContents_Click(object sender, RoutedEventArgs e)
     {
-        if (_selectedDocument?.Kind != HtmlDocumentKind.Book) return;
-
         var show = BookContentsPanel.Visibility != Visibility.Visible;
         _settings = _settings with { BookContentsVisible = show };
+        if (_contextPanelMode == ContextPanelMode.Spell)
+        {
+            SetBookContentsPanelVisible(show);
+            SaveSettings();
+            return;
+        }
+
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Book) return;
         if (show)
         {
             await ShowBookContentsAsync(_selectedDocument);

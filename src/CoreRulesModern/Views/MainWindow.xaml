@@ -23,7 +23,7 @@
           <Button Content="Settings…" Click="Settings_Click" FontSize="11"
                   Height="22" MinHeight="0" Padding="7,0" Margin="2,0" />
         </StackPanel>
-        <TextBlock Text="AD&amp;D CORE RULES LIBRARY" Foreground="#E34B3F" FontSize="15"
+        <TextBlock Text="AD&amp;D Core Rule Library" Foreground="#E34B3F" FontSize="17"
                    FontFamily="Friz Quadrata" FontWeight="Bold"
                    VerticalAlignment="Center" />
       </DockPanel>
@@ -91,7 +91,7 @@
               </ComboBox>
             </Grid>
           </Expander>
-          <TreeView x:Name="NavigationTree" FontSize="15" FontFamily="ITC Korinna" FontWeight="Bold"
+          <TreeView x:Name="NavigationTree" FontSize="15" FontFamily="Friz Quadrata" FontWeight="Bold"
                     Background="Transparent" BorderThickness="0"
                     SelectedItemChanged="NavigationTree_SelectedItemChanged">
             <TreeViewItem x:Name="BookmarksRoot" Header="Bookmarks" IsExpanded="True" />
