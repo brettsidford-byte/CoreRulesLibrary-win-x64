@@ -23,7 +23,7 @@
           <Button Content="Settings…" Click="Settings_Click" FontSize="11"
                   Height="22" MinHeight="0" Padding="7,0" Margin="2,0" />
         </StackPanel>
-        <TextBlock Text="AD&amp;D Core Rule Library" Foreground="#E34B3F" FontSize="17"
+        <TextBlock Text="AD&amp;D Core Rules Library" Foreground="#E34B3F" FontSize="17"
                    FontFamily="Friz Quadrata" FontWeight="Bold"
                    VerticalAlignment="Center" />
       </DockPanel>

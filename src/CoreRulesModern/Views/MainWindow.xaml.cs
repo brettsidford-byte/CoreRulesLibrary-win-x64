@@ -540,7 +540,7 @@ public partial class MainWindow : Window
             Mouse.OverrideCursor = Cursors.Wait;
             if (document.Kind == HtmlDocumentKind.Book)
             {
-                await ShowBookContentsAsync(document);
+                await ShowBookContentsAsync(document, targetPage);
             }
             else
             {
@@ -814,6 +814,7 @@ public partial class MainWindow : Window
         {
             var title = await ReadWebView2PageTitleAsync();
             TrackCurrentPage(currentSource.LocalPath, title);
+            await UpdateBookContentsForPageAsync(currentSource.LocalPath);
         }
     }
 
@@ -840,7 +841,7 @@ public partial class MainWindow : Window
         webView.Settings.AreHostObjectsAllowed = false;
     }
 
-    private void LegacyDocumentBrowser_LoadCompleted(object sender, System.Windows.Navigation.NavigationEventArgs e)
+    private async void LegacyDocumentBrowser_LoadCompleted(object sender, System.Windows.Navigation.NavigationEventArgs e)
     {
         if (e.Uri is { IsFile: true })
         {
@@ -854,6 +855,7 @@ public partial class MainWindow : Window
         if (e.Uri is { IsFile: true } currentUri)
         {
             TrackCurrentPage(currentUri.LocalPath, ReadLegacyPageTitle());
+            await UpdateBookContentsForPageAsync(currentUri.LocalPath);
         }
     }
 
@@ -1116,10 +1118,13 @@ public partial class MainWindow : Window
                      "const page=path.substring(path.lastIndexOf('/')+1).toLowerCase();" +
                      "const vanRichtenFolder=/\\/van[_ ]richten[_ ]guides(?:_v\\d+)?\\//i.test(path);" +
                      "const vanRichtenCover=vanRichtenFolder&&(page==='index.htm'||page==='index.html'||/^vr0[1-9]_00\\.html?$/.test(page));" +
+                     "const domainsFolder=path.toLowerCase().replace(/[^a-z0-9]/g,'').includes('domainsofdread');" +
+                     "const largeCoverImages=[...images].filter(img=>Math.max(Number(img.getAttribute('width')),img.naturalWidth)>=500&&Math.max(Number(img.getAttribute('height')),img.naturalHeight)>=700);" +
+                     "const domainsCover=domainsFolder&&largeCoverImages.length===1;" +
                      "const simpleCover=text.length===0&&(images.length===1||background);" +
                      "body.classList.toggle('core-rules-cover-page',simpleCover);" +
-                     "body.classList.toggle('core-rules-van-richten-cover',vanRichtenCover);" +
-                     "document.documentElement.classList.toggle('core-rules-cover-document',simpleCover||vanRichtenCover);" +
+                     "body.classList.toggle('core-rules-van-richten-cover',vanRichtenCover||domainsCover);" +
+                     "document.documentElement.classList.toggle('core-rules-cover-document',simpleCover||vanRichtenCover||domainsCover);" +
                      "}" +
                      "})()";
         try
@@ -1800,12 +1805,15 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task ShowBookContentsAsync(HtmlDocumentEntry document)
+    private async Task ShowBookContentsAsync(HtmlDocumentEntry document, string? currentPage = null)
     {
         _contextPanelMode = ContextPanelMode.BookContents;
-        _contentsPagePath = Path.GetFullPath(document.StartPage);
+        var contents = BookContentsResolver.Resolve(document.StartPage, currentPage);
+        _contentsPagePath = contents.PagePath;
         _previewedSpell = null;
-        BookContentsTitleText.Text = $"Contents — {document.Title}";
+        BookContentsTitleText.Text = contents.SectionTitle is null
+            ? $"Contents — {document.Title}"
+            : $"Contents — {contents.SectionTitle}";
         ContextBookmarkButton.Visibility = Visibility.Collapsed;
         ContentsToggleButton.Visibility = Visibility.Visible;
         SetBookContentsPanelVisible(_settings.BookContentsVisible);
@@ -1836,6 +1844,18 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task UpdateBookContentsForPageAsync(string currentPage)
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Book ||
+            _contextPanelMode != ContextPanelMode.BookContents) return;
+
+        var contents = BookContentsResolver.Resolve(_selectedDocument.StartPage, currentPage);
+        if (!string.IsNullOrWhiteSpace(_contentsPagePath) &&
+            PathsEqual(_contentsPagePath, contents.PagePath)) return;
+
+        await ShowBookContentsAsync(_selectedDocument, currentPage);
+    }
+
     private void HideBookContents()
     {
         _contextPanelMode = ContextPanelMode.None;
@@ -1860,7 +1880,7 @@ public partial class MainWindow : Window
         if (_selectedDocument?.Kind != HtmlDocumentKind.Book) return;
         if (show)
         {
-            await ShowBookContentsAsync(_selectedDocument);
+            await ShowBookContentsAsync(_selectedDocument, GetCurrentPagePath());
         }
         else
         {

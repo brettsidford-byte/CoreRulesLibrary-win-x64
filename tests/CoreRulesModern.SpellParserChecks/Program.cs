@@ -39,6 +39,7 @@ try
 
     CheckSettingsStore(temporaryFolder);
     CheckBrowserSecurityPolicy(temporaryFolder);
+    CheckBookContentsResolver(temporaryFolder);
 
     Console.WriteLine("Parser, settings reliability and browser security checks passed.");
 }
@@ -140,4 +141,25 @@ static void CheckBrowserSecurityPolicy(string temporaryFolder)
     Require(!BrowserSecurityPolicy.IsAllowedOnlineAddress(
         new Uri("https://completecompendium.com.example/page")),
         "A lookalike host was permitted.");
+}
+
+static void CheckBookContentsResolver(string temporaryFolder)
+{
+    var folder = Path.Combine(temporaryFolder, "Van_Richten_Guides_V2");
+    Directory.CreateDirectory(folder);
+    var startPage = Path.Combine(folder, "index.htm");
+    var guidePage = Path.Combine(folder, "vr05_03.htm");
+    var guideContents = Path.Combine(folder, "vr05_contents.htm");
+    File.WriteAllText(startPage, "<title>Van Richten Guides</title>");
+    File.WriteAllText(guidePage, "<title>Liches</title>");
+    File.WriteAllText(guideContents, "<title>Liches contents</title>");
+
+    var resolved = BookContentsResolver.Resolve(startPage, guidePage);
+    Require(resolved.PagePath == Path.GetFullPath(guideContents),
+        "The active Van Richten guide did not select its own contents page.");
+    Require(resolved.SectionTitle == "Liches", "The Van Richten guide title was not resolved.");
+
+    var unrelated = BookContentsResolver.Resolve(startPage, Path.Combine(folder, "index.htm"));
+    Require(unrelated.PagePath == Path.GetFullPath(startPage),
+        "A non-guide page did not retain the collection start page.");
 }
