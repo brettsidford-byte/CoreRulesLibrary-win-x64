@@ -139,6 +139,11 @@
               <TextBlock Grid.Row="0" Text="Page 1 / Cover" Padding="8,4" FontWeight="Bold"
                          Background="{DynamicResource WoodBrush}" Foreground="#FFF3D4" />
               <Grid Grid.Row="1">
+                <Border x:Name="ManualCoverSurface" Background="Black" Visibility="Collapsed">
+                  <Image x:Name="ManualCoverImage" Stretch="Uniform" StretchDirection="Both"
+                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                         RenderOptions.BitmapScalingMode="HighQuality" />
+                </Border>
                 <WebBrowser x:Name="LegacyCoverBrowser" Visibility="Collapsed"
                             Navigating="LegacyCoverBrowser_Navigating"
                             LoadCompleted="LegacyCoverBrowser_LoadCompleted" />
