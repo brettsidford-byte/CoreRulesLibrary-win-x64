@@ -34,6 +34,14 @@ jobs:
       - name: Build
         run: dotnet build CoreRulesModern.sln --configuration Release --no-restore
 
+      - name: Read application version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content src/CoreRulesModern/CoreRulesModern.csproj
+          $version = ($project.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid application version: $version" }
+          "APP_VERSION=$version" | Add-Content $env:GITHUB_ENV
+
       - name: Run regression checks
         run: dotnet run --project tests/CoreRulesModern.SpellParserChecks/CoreRulesModern.SpellParserChecks.csproj --configuration Release --no-build
 
@@ -45,6 +53,8 @@ jobs:
           --self-contained true
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
           --output artifacts/CoreRulesLibrary-win-x64
 
       - name: Publish compact framework-dependent application
@@ -59,14 +69,17 @@ jobs:
           -p:DebugSymbols=false
           --output artifacts/CoreRulesLibrary-win-x64-compact
 
-      - name: Remove documentation from compact package
+      - name: Remove development-only files from publish folders
         shell: pwsh
-        run: Get-ChildItem artifacts/CoreRulesLibrary-win-x64-compact -Filter *.xml | Remove-Item -Force
+        run: |
+          @('artifacts/CoreRulesLibrary-win-x64', 'artifacts/CoreRulesLibrary-win-x64-compact') | ForEach-Object {
+            Get-ChildItem $_ -Recurse -Include *.xml,*.pdb | Remove-Item -Force
+          }
 
       - name: Package and checksum release artefacts
         shell: pwsh
         run: |
-          $version = "0.9.37"
+          $version = $env:APP_VERSION
           $selfContained = "CoreRulesLibrary-win-x64-self-contained-v$version.zip"
           $compact = "CoreRulesLibrary-win-x64-compact-v$version.zip"
           Compress-Archive -Path artifacts/CoreRulesLibrary-win-x64/* -DestinationPath "artifacts/$selfContained"
@@ -92,10 +105,10 @@ jobs:
       - name: Upload release packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: CoreRulesLibrary-v0.9.37
+          name: CoreRulesLibrary-v${{ env.APP_VERSION }}
           path: |
-            artifacts/CoreRulesLibrary-win-x64-self-contained-v0.9.37.zip
-            artifacts/CoreRulesLibrary-win-x64-compact-v0.9.37.zip
+            artifacts/CoreRulesLibrary-win-x64-self-contained-v${{ env.APP_VERSION }}.zip
+            artifacts/CoreRulesLibrary-win-x64-compact-v${{ env.APP_VERSION }}.zip
             artifacts/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30

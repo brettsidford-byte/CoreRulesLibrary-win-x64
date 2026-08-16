@@ -1311,7 +1311,7 @@ public partial class MainWindow : Window
 
     private static string CreateCharacterSheetBackground()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.png");
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "CharacterSheetTabletop.jpg");
         return File.Exists(path)
             ? $"url('{new Uri(path).AbsoluteUri}')"
             : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +

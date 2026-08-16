@@ -45,10 +45,10 @@ The selected folders can be changed at any time. To refresh a modified character
 
 ## Obtaining a build
 
-Open the repository's **Actions** page and select the latest successful **Windows build**. The `CoreRulesLibrary-v0.9.37` workflow artefact contains two versioned ZIP packages and `SHA256SUMS.txt`:
+Open the repository's **Releases** page and select the latest version. Each release contains two versioned ZIP packages and `SHA256SUMS.txt`:
 
-- `CoreRulesLibrary-win-x64-self-contained-v0.9.37.zip` requires no separate .NET installation.
-- `CoreRulesLibrary-win-x64-compact-v0.9.37.zip` uses the installed .NET 8 Desktop Runtime and is substantially smaller.
+- The **self-contained** package is recommended and requires no separate .NET installation.
+- The **compact** package uses the installed .NET 8 Desktop Runtime and is substantially smaller.
 
 The compact package requires the [.NET 8 Desktop Runtime for Windows x64](https://dotnet.microsoft.com/download/dotnet/8.0). The application in either package is `CoreRulesLibrary.exe`.
 Use `Get-FileHash <zip> -Algorithm SHA256` in PowerShell and compare it with `SHA256SUMS.txt` before extracting a downloaded build.
