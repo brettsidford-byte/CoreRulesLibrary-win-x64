@@ -1862,7 +1862,20 @@ public partial class MainWindow : Window
         object? sender,
         CoreWebView2NavigationCompletedEventArgs e)
     {
-        if (!e.IsSuccess || OnlineBrowser.Source is not { } address) return;
+        if (!e.IsSuccess) return;
+        UpdateOnlinePageState();
+    }
+
+    private void OnlineBrowser_SourceChanged(
+        object? sender,
+        CoreWebView2SourceChangedEventArgs e)
+    {
+        UpdateOnlinePageState();
+    }
+
+    private void UpdateOnlinePageState()
+    {
+        if (OnlineBrowser.Source is not { } address) return;
 
         OnlineAddressText.Text = address.AbsoluteUri;
         var pageTitle = GetCompendiumPageName(address);

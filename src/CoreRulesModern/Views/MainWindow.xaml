@@ -109,8 +109,8 @@
 
       <Border x:Name="BookContentsPanel" Grid.Column="2" Visibility="Collapsed"
               Margin="12,22,0,22" BorderBrush="#8A693E" BorderThickness="1"
-              Background="{DynamicResource ParchmentBrush}">
-        <Grid>
+              Background="{DynamicResource WoodBrush}" Padding="6">
+        <Grid Background="{DynamicResource ParchmentBrush}">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -293,7 +293,9 @@
           </DockPanel>
           <Border Grid.Row="1" BorderBrush="#8A693E" BorderThickness="1"
                   Background="{DynamicResource ParchmentBrush}">
-            <wv2:WebView2 x:Name="OnlineBrowser" NavigationCompleted="OnlineBrowser_NavigationCompleted" />
+            <wv2:WebView2 x:Name="OnlineBrowser"
+                          SourceChanged="OnlineBrowser_SourceChanged"
+                          NavigationCompleted="OnlineBrowser_NavigationCompleted" />
           </Border>
         </Grid>
       </Grid>
