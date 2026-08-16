@@ -203,6 +203,8 @@ static void CheckBookContentsResolver(string temporaryFolder)
         "A guide without a dedicated contents page lost its guide title.");
 
     var unrelated = BookContentsResolver.Resolve(startPage, Path.Combine(folder, "index.htm"));
-    Require(unrelated.PagePath == Path.GetFullPath(startPage),
-        "A non-guide page did not retain the collection start page.");
+    Require(unrelated.CoverPagePath == Path.GetFullPath(startPage),
+        "A non-guide book did not retain its start page in the upper pane.");
+    Require(unrelated.PagePath != Path.GetFullPath(startPage),
+        "A non-guide book did not select a distinct second page for the lower pane.");
 }
