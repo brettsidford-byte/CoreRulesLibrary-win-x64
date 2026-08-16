@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
+using CoreRulesModern.Models;
 
 namespace CoreRulesModern.Services;
 
@@ -33,10 +34,18 @@ public static partial class BookContentsResolver
             ["vr09"] = "Witches"
         };
 
-    public static BookContentsLocation Resolve(string startPage, string? currentPage)
+    public static BookContentsLocation Resolve(
+        string startPage,
+        string? currentPage,
+        HtmlDocumentCollection collection = HtmlDocumentCollection.None)
     {
         var start = Path.GetFullPath(startPage);
-        var fallback = ResolveFirstTwoPages(start);
+        var fallback = collection switch
+        {
+            HtmlDocumentCollection.AdndSecondEdition => ResolveCoreRulesContents(start),
+            HtmlDocumentCollection.Ravenloft when IsDomainsOfDread(start) => ResolveDomainsOfDread(start),
+            _ => ResolveFirstTwoPages(start)
+        };
         if (string.IsNullOrWhiteSpace(currentPage)) return fallback;
 
         var match = VanRichtenPageName().Match(Path.GetFileName(currentPage));
@@ -73,6 +82,64 @@ public static partial class BookContentsResolver
             start,
             VanRichtenGuideTitles[prefix],
             coverPage ?? fallback.CoverPagePath);
+    }
+
+    private static BookContentsLocation ResolveCoreRulesContents(string startPage)
+    {
+        var folder = Path.GetDirectoryName(startPage);
+        return new BookContentsLocation(
+            startPage,
+            CoverPagePath: folder is not null && Directory.Exists(folder)
+                ? FindManualCover(folder) ?? startPage
+                : startPage);
+    }
+
+    private static BookContentsLocation ResolveDomainsOfDread(string startPage)
+    {
+        var folder = Path.GetDirectoryName(startPage);
+        if (folder is null || !Directory.Exists(folder))
+        {
+            return new BookContentsLocation(startPage, CoverPagePath: startPage);
+        }
+
+        var linkedPages = ResolveLinkedPages(startPage, folder);
+        var contentsPage = linkedPages.FirstOrDefault(IsContentsPage) ??
+                           linkedPages.Skip(1).FirstOrDefault() ??
+                           linkedPages.FirstOrDefault() ??
+                           startPage;
+        return new BookContentsLocation(
+            contentsPage,
+            CoverPagePath: FindManualCover(folder) ?? startPage);
+    }
+
+    private static bool IsDomainsOfDread(string startPage)
+    {
+        var folder = Path.GetDirectoryName(startPage) ?? string.Empty;
+        var normalised = new string(folder.Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
+        return normalised.Contains("domainsofdread") || normalised.Contains("domainofdread");
+    }
+
+    private static bool IsContentsPage(string path)
+    {
+        if (Path.GetFileNameWithoutExtension(path)
+            .Contains("contents", StringComparison.OrdinalIgnoreCase)) return true;
+
+        try
+        {
+            using var reader = new StreamReader(path);
+            var buffer = new char[32 * 1024];
+            var length = reader.ReadBlock(buffer, 0, buffer.Length);
+            var openingHtml = new string(buffer, 0, length);
+            var title = PageTitle().Match(openingHtml);
+            return title.Success && title.Groups[1].Value
+                .Contains("contents", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static BookContentsLocation ResolveFirstTwoPages(string startPage)
@@ -117,9 +184,15 @@ public static partial class BookContentsResolver
 
     private static string? ResolveFirstLinkedPage(string startPage, string folder)
     {
+        return ResolveLinkedPages(startPage, folder).FirstOrDefault();
+    }
+
+    private static IReadOnlyList<string> ResolveLinkedPages(string startPage, string folder)
+    {
         try
         {
             var html = File.ReadAllText(startPage);
+            var pages = new List<string>();
             foreach (Match match in LocalPageLink().Matches(html))
             {
                 var href = WebUtility.HtmlDecode(match.Groups[1].Value).Trim();
@@ -133,16 +206,17 @@ public static partial class BookContentsResolver
                     File.Exists(candidate) &&
                     !candidate.Equals(startPage, StringComparison.OrdinalIgnoreCase))
                 {
-                    return candidate;
+                    if (!pages.Contains(candidate, StringComparer.OrdinalIgnoreCase)) pages.Add(candidate);
                 }
             }
+            return pages;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
             // Fall back to the next filename when the start page cannot be read safely.
         }
 
-        return null;
+        return [];
     }
 
     [GeneratedRegex(@"^(vr0[1-9])_\d+\.html?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
@@ -151,4 +225,8 @@ public static partial class BookContentsResolver
     [GeneratedRegex(@"href\s*=\s*[\""']([^\""']+\.html?(?:#[^\""']*)?)[\""']",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex LocalPageLink();
+
+    [GeneratedRegex(@"<title\b[^>]*>(.*?)</title\s*>",
+        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex PageTitle();
 }

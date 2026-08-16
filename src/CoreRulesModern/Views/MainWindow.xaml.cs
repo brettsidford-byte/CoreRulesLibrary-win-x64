@@ -1810,7 +1810,7 @@ public partial class MainWindow : Window
     private async Task ShowBookContentsAsync(HtmlDocumentEntry document, string? currentPage = null)
     {
         _contextPanelMode = ContextPanelMode.BookContents;
-        var contents = BookContentsResolver.Resolve(document.StartPage, currentPage);
+        var contents = BookContentsResolver.Resolve(document.StartPage, currentPage, document.Collection);
         _contentsPagePath = contents.PagePath;
         _coverPagePath = contents.CoverPagePath;
         _previewedSpell = null;
@@ -1860,7 +1860,10 @@ public partial class MainWindow : Window
         if (_selectedDocument?.Kind != HtmlDocumentKind.Book ||
             _contextPanelMode != ContextPanelMode.BookContents) return;
 
-        var contents = BookContentsResolver.Resolve(_selectedDocument.StartPage, currentPage);
+        var contents = BookContentsResolver.Resolve(
+            _selectedDocument.StartPage,
+            currentPage,
+            _selectedDocument.Collection);
         if (!string.IsNullOrWhiteSpace(_contentsPagePath) &&
             PathsEqual(_contentsPagePath, contents.PagePath) &&
             ((string.IsNullOrWhiteSpace(_coverPagePath) &&

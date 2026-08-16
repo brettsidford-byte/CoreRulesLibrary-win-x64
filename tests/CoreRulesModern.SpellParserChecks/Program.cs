@@ -168,11 +168,30 @@ static void CheckBookContentsResolver(string temporaryFolder)
     File.WriteAllText(ordinaryStart, "<title>Page 1</title>");
     File.WriteAllText(ordinarySecond, "<title>Page 2</title>");
     File.WriteAllBytes(ordinaryCover, [0x89, 0x50, 0x4E, 0x47]);
-    var ordinary = BookContentsResolver.Resolve(ordinaryStart, ordinaryStart);
+    var ordinary = BookContentsResolver.Resolve(
+        ordinaryStart,
+        ordinaryStart,
+        HtmlDocumentCollection.AdndSecondEdition);
     Require(ordinary.CoverPagePath == Path.GetFullPath(ordinaryCover),
         "An ordinary book did not prefer its manually supplied cover image.");
-    Require(ordinary.PagePath == Path.GetFullPath(ordinarySecond),
-        "An ordinary book did not use its second page in the lower pane.");
+    Require(ordinary.PagePath == Path.GetFullPath(ordinaryStart),
+        "A Core Rules book did not retain its landing/contents page in the lower pane.");
+
+    var domainsFolder = Path.Combine(temporaryFolder, "Domains_of_Dread");
+    Directory.CreateDirectory(domainsFolder);
+    var domainsStart = Path.Combine(domainsFolder, "index.htm");
+    var domainsCredits = Path.Combine(domainsFolder, "dod01.htm");
+    var domainsContents = Path.Combine(domainsFolder, "dod02.htm");
+    File.WriteAllText(domainsStart,
+        "<a href='dod01.htm'>Credits</a><a href='dod02.htm'>Contents</a>");
+    File.WriteAllText(domainsCredits, "<title>Credits</title>");
+    File.WriteAllText(domainsContents, "<title>Table of Contents</title>");
+    var domains = BookContentsResolver.Resolve(
+        domainsStart,
+        domainsStart,
+        HtmlDocumentCollection.Ravenloft);
+    Require(domains.PagePath == Path.GetFullPath(domainsContents),
+        "Domains of Dread did not skip credits and select its contents page.");
 
     var folder = Path.Combine(temporaryFolder, "Van_Richten_Guides_V2");
     Directory.CreateDirectory(folder);
@@ -187,7 +206,8 @@ static void CheckBookContentsResolver(string temporaryFolder)
     File.WriteAllText(guideCover, "<title>Liches cover</title>");
     File.WriteAllBytes(collectionCover, [0xFF, 0xD8, 0xFF]);
 
-    var resolved = BookContentsResolver.Resolve(startPage, guidePage);
+    var resolved = BookContentsResolver.Resolve(
+        startPage, guidePage, HtmlDocumentCollection.Ravenloft);
     Require(resolved.PagePath == Path.GetFullPath(guideContents),
         "The active Van Richten guide did not select its own contents page.");
     Require(resolved.SectionTitle == "Liches", "The Van Richten guide title was not resolved.");
@@ -198,7 +218,8 @@ static void CheckBookContentsResolver(string temporaryFolder)
     var guideWithoutContentsCover = Path.Combine(folder, "vr09_00.htm");
     File.WriteAllText(guideWithoutContents, "<title>Witches</title>");
     File.WriteAllText(guideWithoutContentsCover, "<title>Witches cover</title>");
-    var fallbackContents = BookContentsResolver.Resolve(startPage, guideWithoutContents);
+    var fallbackContents = BookContentsResolver.Resolve(
+        startPage, guideWithoutContents, HtmlDocumentCollection.Ravenloft);
     Require(fallbackContents.PagePath == Path.GetFullPath(startPage),
         "A guide without a dedicated contents page did not use the collection contents.");
     Require(fallbackContents.CoverPagePath == Path.GetFullPath(guideWithoutContentsCover),
@@ -206,7 +227,8 @@ static void CheckBookContentsResolver(string temporaryFolder)
     Require(fallbackContents.SectionTitle == "Witches",
         "A guide without a dedicated contents page lost its guide title.");
 
-    var unrelated = BookContentsResolver.Resolve(startPage, Path.Combine(folder, "index.htm"));
+    var unrelated = BookContentsResolver.Resolve(
+        startPage, Path.Combine(folder, "index.htm"), HtmlDocumentCollection.Ravenloft);
     Require(unrelated.CoverPagePath == Path.GetFullPath(collectionCover),
         "A non-guide book did not prefer its manually supplied collection cover.");
     Require(unrelated.PagePath != Path.GetFullPath(startPage),
