@@ -164,11 +164,13 @@ static void CheckBookContentsResolver(string temporaryFolder)
     Directory.CreateDirectory(ordinaryFolder);
     var ordinaryStart = Path.Combine(ordinaryFolder, "DD00100.htm");
     var ordinarySecond = Path.Combine(ordinaryFolder, "DD00101.htm");
+    var ordinaryCover = Path.Combine(ordinaryFolder, "Cover.PNG");
     File.WriteAllText(ordinaryStart, "<title>Page 1</title>");
     File.WriteAllText(ordinarySecond, "<title>Page 2</title>");
+    File.WriteAllBytes(ordinaryCover, [0x89, 0x50, 0x4E, 0x47]);
     var ordinary = BookContentsResolver.Resolve(ordinaryStart, ordinaryStart);
-    Require(ordinary.CoverPagePath == Path.GetFullPath(ordinaryStart),
-        "An ordinary book did not use its first page in the upper pane.");
+    Require(ordinary.CoverPagePath == Path.GetFullPath(ordinaryCover),
+        "An ordinary book did not prefer its manually supplied cover image.");
     Require(ordinary.PagePath == Path.GetFullPath(ordinarySecond),
         "An ordinary book did not use its second page in the lower pane.");
 
@@ -178,10 +180,12 @@ static void CheckBookContentsResolver(string temporaryFolder)
     var guidePage = Path.Combine(folder, "vr05_03.htm");
     var guideContents = Path.Combine(folder, "vr05_contents.htm");
     var guideCover = Path.Combine(folder, "vr05_00.htm");
+    var collectionCover = Path.Combine(folder, "cover.jpg");
     File.WriteAllText(startPage, "<title>Van Richten Guides</title>");
     File.WriteAllText(guidePage, "<title>Liches</title>");
     File.WriteAllText(guideContents, "<title>Liches contents</title>");
     File.WriteAllText(guideCover, "<title>Liches cover</title>");
+    File.WriteAllBytes(collectionCover, [0xFF, 0xD8, 0xFF]);
 
     var resolved = BookContentsResolver.Resolve(startPage, guidePage);
     Require(resolved.PagePath == Path.GetFullPath(guideContents),
@@ -203,8 +207,8 @@ static void CheckBookContentsResolver(string temporaryFolder)
         "A guide without a dedicated contents page lost its guide title.");
 
     var unrelated = BookContentsResolver.Resolve(startPage, Path.Combine(folder, "index.htm"));
-    Require(unrelated.CoverPagePath == Path.GetFullPath(startPage),
-        "A non-guide book did not retain its start page in the upper pane.");
+    Require(unrelated.CoverPagePath == Path.GetFullPath(collectionCover),
+        "A non-guide book did not prefer its manually supplied collection cover.");
     Require(unrelated.PagePath != Path.GetFullPath(startPage),
         "A non-guide book did not select a distinct second page for the lower pane.");
 }

@@ -1991,6 +1991,7 @@ public partial class MainWindow : Window
         System.Windows.Navigation.NavigationEventArgs e)
     {
         ApplyLegacyParagraphStyle(LegacyCoverBrowser);
+        if (IsCoverImage(_coverPagePath)) ApplyLegacyCoverImageStyle();
         try
         {
             dynamic? document = LegacyCoverBrowser.Document;
@@ -2002,6 +2003,36 @@ public partial class MainWindow : Window
             // The cover remains usable when a legacy DOM rejects zoom.
         }
     }
+
+    private void ApplyLegacyCoverImageStyle()
+    {
+        try
+        {
+            dynamic? document = LegacyCoverBrowser.Document;
+            dynamic? head = document?.getElementsByTagName("head")?.item(0);
+            if (document is null || head is null) return;
+
+            dynamic style = document.createElement("style");
+            style.type = "text/css";
+            style.styleSheet.cssText =
+                "html,body{margin:0!important;padding:0!important;width:100%!important;height:100%!important;" +
+                "background:#000!important;overflow:auto!important;}" +
+                "img{display:block!important;max-width:100%!important;max-height:100%!important;" +
+                "width:auto!important;height:auto!important;margin:0 auto!important;}";
+            head.appendChild(style);
+        }
+        catch
+        {
+            // The browser's native image view remains available if styling is rejected.
+        }
+    }
+
+    private static bool IsCoverImage(string? path) =>
+        !string.IsNullOrWhiteSpace(path) &&
+        (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+         path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+         path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+         path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase));
 
     private void CoverBrowser_NavigationStarting(
         object? sender,

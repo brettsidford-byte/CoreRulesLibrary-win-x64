@@ -11,6 +11,14 @@ public sealed record BookContentsLocation(
 
 public static partial class BookContentsResolver
 {
+    private static readonly string[] ManualCoverFileNames =
+    {
+        "cover.jpg",
+        "cover.jpeg",
+        "cover.png",
+        "cover.webp"
+    };
+
     private static readonly IReadOnlyDictionary<string, string> VanRichtenGuideTitles =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -88,7 +96,23 @@ public static partial class BookContentsResolver
             ? pages[startIndex + 1]
             : startPage);
 
-        return new BookContentsLocation(secondPage, CoverPagePath: startPage);
+        return new BookContentsLocation(
+            secondPage,
+            CoverPagePath: FindManualCover(folder) ?? startPage);
+    }
+
+    private static string? FindManualCover(string folder)
+    {
+        var files = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .ToArray();
+        foreach (var expectedName in ManualCoverFileNames)
+        {
+            var cover = files.FirstOrDefault(path => Path.GetFileName(path)
+                .Equals(expectedName, StringComparison.OrdinalIgnoreCase));
+            if (cover is not null) return Path.GetFullPath(cover);
+        }
+
+        return null;
     }
 
     private static string? ResolveFirstLinkedPage(string startPage, string folder)
