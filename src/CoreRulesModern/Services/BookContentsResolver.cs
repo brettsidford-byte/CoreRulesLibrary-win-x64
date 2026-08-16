@@ -62,7 +62,7 @@ public static partial class BookContentsResolver
         }
 
         return new BookContentsLocation(
-            fallback.PagePath,
+            start,
             VanRichtenGuideTitles[prefix],
             coverPage ?? fallback.CoverPagePath);
     }
