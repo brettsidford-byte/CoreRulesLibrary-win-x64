@@ -560,6 +560,7 @@ public partial class MainWindow : Window
                 LegacyDocumentBrowser.Visibility = Visibility.Collapsed;
                 DocumentBrowser.Visibility = Visibility.Visible;
                 await DocumentBrowser.EnsureCoreWebView2Async();
+                HardenWebView(DocumentBrowser.CoreWebView2);
                 ApplyDocumentScale();
                 DocumentBrowser.Source = address;
                 FooterStatus.Text = $"Displaying {document.Title} · WebView2 · read-only";
@@ -608,6 +609,7 @@ public partial class MainWindow : Window
         try
         {
             await SpellBrowser.EnsureCoreWebView2Async();
+            HardenWebView(SpellBrowser.CoreWebView2);
             ApplySpellScale();
             SpellBrowser.NavigateToString(CreateSpellHtml(spell));
         }
@@ -633,6 +635,7 @@ public partial class MainWindow : Window
         try
         {
             await ContentsBrowser.EnsureCoreWebView2Async();
+            HardenWebView(ContentsBrowser.CoreWebView2);
             ContentsBrowser.ZoomFactor = 0.9;
             ContentsBrowser.NavigateToString(CreateSpellHtml(spell));
             UpdateSpellBookmarkButtons();
@@ -664,6 +667,7 @@ public partial class MainWindow : Window
         {
             Mouse.OverrideCursor = Cursors.Wait;
             await OnlineBrowser.EnsureCoreWebView2Async();
+            HardenWebView(OnlineBrowser.CoreWebView2);
             OnlineBrowser.Source = new Uri(targetAddress);
             FooterStatus.Text = $"Displaying {resource.Title} · online resource";
         }
@@ -813,6 +817,29 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DocumentBrowser_NavigationStarting(
+        object? sender,
+        CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var address) &&
+            BrowserSecurityPolicy.IsLocalPageWithin(address,
+                [_settings.LibraryPath, _settings.CharacterSheetsPath])) return;
+
+        e.Cancel = true;
+        FooterStatus.Text = "Blocked navigation outside the selected local library.";
+    }
+
+    private static void HardenWebView(CoreWebView2? webView)
+    {
+        if (webView is null) return;
+        webView.Settings.AreDevToolsEnabled = false;
+        webView.Settings.AreDefaultContextMenusEnabled = false;
+        webView.Settings.IsStatusBarEnabled = false;
+        webView.Settings.IsPasswordAutosaveEnabled = false;
+        webView.Settings.IsGeneralAutofillEnabled = false;
+        webView.Settings.AreHostObjectsAllowed = false;
+    }
+
     private void LegacyDocumentBrowser_LoadCompleted(object sender, System.Windows.Navigation.NavigationEventArgs e)
     {
         if (e.Uri is { IsFile: true })
@@ -828,6 +855,15 @@ public partial class MainWindow : Window
         {
             TrackCurrentPage(currentUri.LocalPath, ReadLegacyPageTitle());
         }
+    }
+
+    private void LegacyDocumentBrowser_Navigating(
+        object sender,
+        System.Windows.Navigation.NavigatingCancelEventArgs e)
+    {
+        if (BrowserSecurityPolicy.IsLocalPageWithin(e.Uri, [_settings.LibraryPath])) return;
+        e.Cancel = true;
+        FooterStatus.Text = "Blocked navigation outside the selected local library.";
     }
 
     private async Task<string> ReadWebView2PageTitleAsync()
@@ -1790,6 +1826,7 @@ public partial class MainWindow : Window
             LegacyContentsBrowser.Visibility = Visibility.Collapsed;
             ContentsBrowser.Visibility = Visibility.Visible;
             await ContentsBrowser.EnsureCoreWebView2Async();
+            HardenWebView(ContentsBrowser.CoreWebView2);
             ContentsBrowser.ZoomFactor = 0.9;
             if (ContentsBrowser.Source is null ||
                 !PathsEqual(ContentsBrowser.Source.LocalPath, _contentsPagePath))
@@ -1848,7 +1885,13 @@ public partial class MainWindow : Window
     {
         if (_contextPanelMode != ContextPanelMode.BookContents) return;
         if (e.Uri is not { IsFile: true } address ||
-            string.IsNullOrWhiteSpace(_contentsPagePath) ||
+            !BrowserSecurityPolicy.IsLocalPageWithin(address, [_settings.LibraryPath]))
+        {
+            e.Cancel = true;
+            FooterStatus.Text = "Blocked navigation outside the selected local library.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_contentsPagePath) ||
             PathsEqual(address.LocalPath, _contentsPagePath)) return;
 
         e.Cancel = true;
@@ -1879,8 +1922,13 @@ public partial class MainWindow : Window
     {
         if (_contextPanelMode != ContextPanelMode.BookContents) return;
         if (!Uri.TryCreate(e.Uri, UriKind.Absolute, out var address) ||
-            !address.IsFile ||
-            string.IsNullOrWhiteSpace(_contentsPagePath) ||
+            !BrowserSecurityPolicy.IsLocalPageWithin(address, [_settings.LibraryPath]))
+        {
+            e.Cancel = true;
+            FooterStatus.Text = "Blocked navigation outside the selected local library.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_contentsPagePath) ||
             PathsEqual(address.LocalPath, _contentsPagePath)) return;
 
         e.Cancel = true;
@@ -1905,6 +1953,17 @@ public partial class MainWindow : Window
     {
         if (!e.IsSuccess) return;
         UpdateOnlinePageState();
+    }
+
+    private void OnlineBrowser_NavigationStarting(
+        object? sender,
+        CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var address) &&
+            BrowserSecurityPolicy.IsAllowedOnlineAddress(address)) return;
+
+        e.Cancel = true;
+        FooterStatus.Text = "Blocked navigation outside Complete Compendium.";
     }
 
     private void OnlineBrowser_SourceChanged(

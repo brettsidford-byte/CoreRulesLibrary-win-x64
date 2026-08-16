@@ -7,31 +7,72 @@ namespace CoreRulesModern.Services;
 public sealed class UserSettingsStore
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private readonly string _settingsPath;
 
-    private string SettingsPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CoreRulesModern",
-        "settings.json");
+    public UserSettingsStore(string? settingsPath = null)
+    {
+        _settingsPath = settingsPath ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CoreRulesModern",
+            "settings.json");
+    }
 
     public UserSettings Load()
     {
-        try
-        {
-            if (!File.Exists(SettingsPath)) return new UserSettings();
-            return JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(SettingsPath)) ?? new UserSettings();
-        }
-        catch (JsonException)
-        {
-            return new UserSettings();
-        }
+        var settings = TryLoad(_settingsPath) ?? TryLoad(_settingsPath + ".bak");
+        return Normalise(settings);
     }
 
     public void Save(UserSettings settings)
     {
-        var directory = Path.GetDirectoryName(SettingsPath)!;
+        var directory = Path.GetDirectoryName(_settingsPath)!;
         Directory.CreateDirectory(directory);
-        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
+        var temporaryPath = _settingsPath + ".tmp";
+        var backupPath = _settingsPath + ".bak";
+        var json = JsonSerializer.Serialize(Normalise(settings), JsonOptions);
+
+        File.WriteAllText(temporaryPath, json);
+        if (File.Exists(_settingsPath))
+        {
+            File.Replace(temporaryPath, _settingsPath, backupPath, ignoreMetadataErrors: true);
+        }
+        else
+        {
+            File.Move(temporaryPath, _settingsPath);
+        }
     }
+
+    private static UserSettings Normalise(UserSettings? settings)
+    {
+        settings ??= new UserSettings();
+        return settings with
+        {
+            Scale = NormaliseScale(settings.Scale, 125),
+            SpellScale = NormaliseScale(settings.SpellScale, 175),
+            RecentPageLimit = settings.RecentPageLimit is 10 or 20 or 30 or 50
+                ? settings.RecentPageLimit
+                : 20,
+            Bookmarks = settings.Bookmarks ?? [],
+            RecentPages = settings.RecentPages ?? []
+        };
+    }
+
+    private static UserSettings? TryLoad(string path)
+    {
+        try
+        {
+            return File.Exists(path)
+                ? JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(path))
+                : null;
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static int NormaliseScale(int value, int fallback) =>
+        value is >= 100 and <= 300 && value % 25 == 0 ? value : fallback;
 
     public sealed record UserSettings(
         string? LibraryPath = null,

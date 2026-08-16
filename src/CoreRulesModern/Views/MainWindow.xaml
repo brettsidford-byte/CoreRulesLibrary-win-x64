@@ -228,8 +228,10 @@
                   Background="{DynamicResource ParchmentBrush}">
             <Grid>
               <WebBrowser x:Name="LegacyDocumentBrowser" Visibility="Collapsed"
+                          Navigating="LegacyDocumentBrowser_Navigating"
                           LoadCompleted="LegacyDocumentBrowser_LoadCompleted" />
               <wv2:WebView2 x:Name="DocumentBrowser" Visibility="Collapsed"
+                            NavigationStarting="DocumentBrowser_NavigationStarting"
                             NavigationCompleted="DocumentBrowser_NavigationCompleted" />
             </Grid>
           </Border>
@@ -294,6 +296,7 @@
           <Border Grid.Row="1" BorderBrush="#8A693E" BorderThickness="1"
                   Background="{DynamicResource ParchmentBrush}">
             <wv2:WebView2 x:Name="OnlineBrowser"
+                          NavigationStarting="OnlineBrowser_NavigationStarting"
                           SourceChanged="OnlineBrowser_SourceChanged"
                           NavigationCompleted="OnlineBrowser_NavigationCompleted" />
           </Border>
