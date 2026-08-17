@@ -1,0 +1,82 @@
+<Window x:Class="CoreRulesModern.Views.CharacterPrintOptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Print character sheet" Width="560" Height="650"
+        MinWidth="500" MinHeight="520" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+  <Grid Margin="18">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0" Text="Character-sheet print layout" FontFamily="ITC Korinna"
+               FontSize="22" FontWeight="Bold" Margin="0,0,0,14" />
+
+    <Grid Grid.Row="1" Margin="0,0,0,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" Margin="0,0,10,0">
+        <TextBlock Text="Paper" Margin="0,0,0,4" />
+        <ComboBox x:Name="PaperSizeBox" SelectedValuePath="Content">
+          <ComboBoxItem Content="A4" />
+          <ComboBoxItem Content="Letter" />
+        </ComboBox>
+      </StackPanel>
+      <StackPanel Grid.Column="1" Margin="0,0,10,0">
+        <TextBlock Text="Orientation" Margin="0,0,0,4" />
+        <ComboBox x:Name="OrientationBox" SelectedValuePath="Tag">
+          <ComboBoxItem Content="Portrait" Tag="Portrait" />
+          <ComboBoxItem Content="Landscape" Tag="Landscape" />
+        </ComboBox>
+      </StackPanel>
+      <StackPanel Grid.Column="2">
+        <TextBlock Text="Margins" Margin="0,0,0,4" />
+        <ComboBox x:Name="MarginBox" SelectedValuePath="Tag">
+          <ComboBoxItem Content="Narrow (7 mm)" Tag="7" />
+          <ComboBoxItem Content="Normal (12 mm)" Tag="12" />
+          <ComboBoxItem Content="Wide (20 mm)" Tag="20" />
+        </ComboBox>
+      </StackPanel>
+    </Grid>
+
+    <StackPanel Grid.Row="2" Margin="0,0,0,12">
+      <TextBlock Text="Sections on each page" Margin="0,0,0,4" />
+      <ComboBox x:Name="SectionsPerPageBox" SelectedValuePath="Tag">
+        <ComboBoxItem Content="Automatic — use the recommended layout" Tag="0" />
+        <ComboBoxItem Content="One section per page" Tag="1" />
+        <ComboBoxItem Content="Up to two sections per page" Tag="2" />
+        <ComboBoxItem Content="Up to three sections per page" Tag="3" />
+        <ComboBoxItem Content="Up to four sections per page" Tag="4" />
+      </ComboBox>
+    </StackPanel>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+      <CheckBox x:Name="KeepTogetherBox" Content="Keep individual sections together" Margin="0,0,22,0" />
+      <CheckBox x:Name="PrintBackgroundsBox" Content="Print themed backgrounds" />
+    </StackPanel>
+
+    <GroupBox Grid.Row="4" Header="Manual page breaks" Padding="10" Margin="0,0,0,14">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Tick a section to begin a new page after it. Section order is unchanged."
+                   TextWrapping="Wrap" Margin="0,0,0,8" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel x:Name="SectionBreaksPanel" />
+        </ScrollViewer>
+      </DockPanel>
+    </GroupBox>
+
+    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Cancel" Width="90" IsCancel="True" />
+      <Button Content="Open print preview" Width="150" Margin="8,4,4,4"
+              IsDefault="True" Click="Accept_Click" />
+    </StackPanel>
+  </Grid>
+</Window>
