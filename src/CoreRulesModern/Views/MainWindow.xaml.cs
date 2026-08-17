@@ -71,7 +71,7 @@ public partial class MainWindow : Window
 
     private static void LoadInterfaceTextures()
     {
-        TrySetTextureBrush("WoodBrush", "WoodTexture.jpg", Stretch.UniformToFill);
+        TrySetTextureBrush("WoodBrush", "WoodTexture.jpg", Stretch.None, true);
         TrySetTextureBrush("ParchmentBrush", "ParchmentTexture.jpg", Stretch.None, true);
     }
 
@@ -628,7 +628,6 @@ public partial class MainWindow : Window
         _contentsPagePath = null;
         _coverPagePath = null;
         _previewedSpell = spell;
-        BookContentsTitleText.Text = $"Spell — {spell.Name}";
         ContentsToggleButton.Visibility = Visibility.Visible;
         ContentsToggleButton.Content = "Hide spell preview";
         ContextBookmarkButton.Visibility = Visibility.Visible;
@@ -1240,7 +1239,23 @@ public partial class MainWindow : Window
     private static string CreateParchmentBackgroundImage()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ParchmentTexture.jpg");
-        return File.Exists(path) ? $"url('{new Uri(path).AbsoluteUri}')" : "none";
+        if (!File.Exists(path)) return "none";
+
+        try
+        {
+            // NavigateToString documents have no local-file origin. Embedding the
+            // packaged texture keeps spell surfaces consistent with book readers.
+            var encoded = Convert.ToBase64String(File.ReadAllBytes(path));
+            return $"url('data:image/jpeg;base64,{encoded}')";
+        }
+        catch (IOException)
+        {
+            return "none";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return "none";
+        }
     }
 
     private string CreateDocumentParagraphCss()
@@ -1429,7 +1444,7 @@ public partial class MainWindow : Window
         {
             var recentTitle = (_settings.RecentPages ?? [])
                 .FirstOrDefault(page => PathsEqual(page.PagePath, path))?.PageTitle;
-            var title = recentTitle ?? (UseLegacyDocumentBrowser ? ReadLegacyPageTitle() : DocumentTitleText.Text);
+            var title = recentTitle ?? (UseLegacyDocumentBrowser ? ReadLegacyPageTitle() : _selectedDocument.Title);
             bookmarks.Add(new SavedPage(
                 _selectedDocument.Title,
                 Path.GetFullPath(_selectedDocument.StartPage),
@@ -1814,9 +1829,6 @@ public partial class MainWindow : Window
         _contentsPagePath = contents.PagePath;
         _coverPagePath = contents.CoverPagePath;
         _previewedSpell = null;
-        BookContentsTitleText.Text = contents.SectionTitle is null
-            ? $"Contents — {document.Title}"
-            : $"Contents — {contents.SectionTitle}";
         ContextBookmarkButton.Visibility = Visibility.Collapsed;
         ContentsToggleButton.Visibility = Visibility.Visible;
         SpellContextBrowser.Visibility = Visibility.Collapsed;
@@ -1930,7 +1942,6 @@ public partial class MainWindow : Window
 
     private void SetCoverPaneVisible(bool visible)
     {
-        CoverLabelRow.Height = visible ? GridLength.Auto : new GridLength(0);
         CoverViewerRow.MinHeight = visible ? 120 : 0;
         CoverViewerRow.Height = visible
             ? new GridLength(_settings.BookReferenceCoverHeight)

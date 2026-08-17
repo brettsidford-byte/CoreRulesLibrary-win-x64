@@ -108,7 +108,7 @@
                     Background="{DynamicResource WoodBrush}" />
 
       <Border x:Name="BookContentsPanel" Grid.Column="2" Visibility="Collapsed"
-              Margin="12,22,0,22" BorderBrush="#8A693E" BorderThickness="1"
+              Margin="12,4,0,12" BorderBrush="#B28A4D" BorderThickness="2"
               Background="{DynamicResource WoodBrush}" Padding="6">
         <Grid Background="{DynamicResource ParchmentBrush}">
           <Grid.RowDefinitions>
@@ -123,22 +123,15 @@
                     Click="ContextBookmark_Click" Visibility="Collapsed"
                     FontSize="11" Height="22" MinHeight="0" Padding="7,0" Margin="0,5,0,5"
                     ToolTip="Add or remove this spell from bookmarks" />
-            <TextBlock x:Name="BookContentsTitleText" Text="Contents" Margin="10,7"
-                       FontFamily="ITC Korinna" FontWeight="Bold" FontSize="17"
-                       Foreground="#FFF3D4" TextTrimming="CharacterEllipsis" />
           </DockPanel>
           <Grid Grid.Row="1">
             <Grid x:Name="BookReferenceSplitGrid">
               <Grid.RowDefinitions>
-                <RowDefinition x:Name="CoverLabelRow" Height="Auto" />
                 <RowDefinition x:Name="CoverViewerRow" Height="*" MinHeight="120" />
                 <RowDefinition x:Name="ReferenceSplitterRow" Height="6" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" MinHeight="120" />
               </Grid.RowDefinitions>
-              <TextBlock Grid.Row="0" Text="Page 1 / Cover" Padding="8,4" FontWeight="Bold"
-                         Background="{DynamicResource WoodBrush}" Foreground="#FFF3D4" />
-              <Grid Grid.Row="1">
+              <Grid Grid.Row="0">
                 <Border x:Name="ManualCoverSurface" Background="Black" Visibility="Collapsed">
                   <Image x:Name="ManualCoverImage" Stretch="Uniform" StretchDirection="Both"
                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
@@ -151,14 +144,12 @@
                               NavigationStarting="CoverBrowser_NavigationStarting"
                               NavigationCompleted="CoverBrowser_NavigationCompleted" />
               </Grid>
-              <GridSplitter x:Name="ReferenceGridSplitter" Grid.Row="2" Height="6"
+              <GridSplitter x:Name="ReferenceGridSplitter" Grid.Row="1" Height="6"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
                             Background="{DynamicResource WoodBrush}" Cursor="SizeNS"
                             ToolTip="Drag to resize the cover and contents panes" />
-              <TextBlock Grid.Row="3" Text="Page 2 / Contents" Padding="8,4" FontWeight="Bold"
-                         Background="{DynamicResource WoodBrush}" Foreground="#FFF3D4" />
-              <Grid Grid.Row="4">
+              <Grid Grid.Row="2">
                 <WebBrowser x:Name="LegacyContentsBrowser" Visibility="Collapsed"
                             Navigating="LegacyContentsBrowser_Navigating"
                             LoadCompleted="LegacyContentsBrowser_LoadCompleted" />
@@ -191,19 +182,18 @@
           </Border>
         </StackPanel>
 
-        <Grid x:Name="DocumentPanel" Visibility="Collapsed" Margin="22">
+        <Grid x:Name="DocumentPanel" Visibility="Collapsed" Margin="12,4,12,12">
           <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" MinHeight="28" />
-            <RowDefinition Height="6" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <Grid Grid.Row="0" Margin="0,0,0,8" ClipToBounds="True"
+          <Grid Grid.Row="0" Margin="0" ClipToBounds="True"
                 Background="{DynamicResource WoodBrush}">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-            <WrapPanel Grid.Row="0" Margin="12,8,12,5" VerticalAlignment="Center">
+            <WrapPanel Grid.Row="0" Margin="4" VerticalAlignment="Center">
               <WrapPanel.Resources>
                 <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                   <Setter Property="FontSize" Value="11" />
@@ -248,17 +238,14 @@
               <TextBlock x:Name="FindStatusText" VerticalAlignment="Center" Margin="5,0,0,0"
                          Foreground="#E1C99C" FontSize="11" />
             </WrapPanel>
-            <StackPanel Grid.Row="1" Margin="12,0,12,8">
-              <TextBlock x:Name="DocumentTitleText" FontSize="23" FontFamily="ITC Korinna"
+            <StackPanel Grid.Row="1" Margin="4,0,4,4">
+              <TextBlock x:Name="DocumentTitleText" FontSize="20" FontFamily="ITC Korinna"
                          FontWeight="Bold" TextWrapping="Wrap" Foreground="#FFF3D4" />
-              <TextBlock x:Name="DocumentPathText" Margin="0,2,0,0" FontSize="11" Foreground="#E1C99C"
+              <TextBlock x:Name="DocumentPathText" Margin="0,1,0,0" FontSize="10" Foreground="#E1C99C"
                          FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
             </StackPanel>
           </Grid>
-          <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                        ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" Background="{DynamicResource WoodBrush}"
-                        Cursor="SizeNS" ToolTip="Drag to resize the reader header" />
-          <Border Grid.Row="2" BorderBrush="#8A693E" BorderThickness="1"
+          <Border Grid.Row="1" BorderBrush="#B28A4D" BorderThickness="2"
                   Background="{DynamicResource ParchmentBrush}">
             <Grid>
               <WebBrowser x:Name="LegacyDocumentBrowser" Visibility="Collapsed"
@@ -271,7 +258,7 @@
           </Border>
         </Grid>
 
-        <Grid x:Name="SpellPanel" Visibility="Collapsed" Margin="22">
+        <Grid x:Name="SpellPanel" Visibility="Collapsed" Margin="12,4,12,12">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -300,7 +287,7 @@
                          FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
             </StackPanel>
           </DockPanel>
-          <Border Grid.Row="1" BorderBrush="#8A693E" BorderThickness="1"
+          <Border Grid.Row="1" BorderBrush="#B28A4D" BorderThickness="2"
                   Background="{DynamicResource ParchmentBrush}">
             <wv2:WebView2 x:Name="SpellBrowser" />
           </Border>
