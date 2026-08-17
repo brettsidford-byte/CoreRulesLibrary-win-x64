@@ -963,6 +963,8 @@ public partial class MainWindow : Window
                 "margin:0!important;padding:0!important;}";
             head.appendChild(style);
 
+            ApplyMaximumAdndHeadingFont(document);
+
             dynamic paragraphs = document.getElementsByTagName("p");
             var paragraphCount = (int)paragraphs.length;
             for (var index = 0; index < paragraphCount; index++)
@@ -1276,9 +1278,42 @@ public partial class MainWindow : Window
         var maximumSize = GetMaximumAdndHeadingSize(_selectedDocument);
         if (maximumSize is not (5 or 6)) return string.Empty;
 
-        return $"font[size='{maximumSize}'],font[size='{maximumSize}'] *{{" +
+        var relativeSize = maximumSize == 6 ? "+3" : "+2";
+        return $"font[size='{maximumSize}'],font[size='{maximumSize}'] *," +
+               $"font[size='{relativeSize}'],font[size='{relativeSize}'] *{{" +
                "font-family:'Core Rules Friz Quadrata','Friz Quadrata',serif!important;" +
                "font-weight:bold!important;}";
+    }
+
+    private void ApplyMaximumAdndHeadingFont(dynamic document)
+    {
+        if (_selectedDocument?.Collection != HtmlDocumentCollection.AdndSecondEdition) return;
+
+        var maximumSize = GetMaximumAdndHeadingSize(_selectedDocument);
+        if (maximumSize is not (5 or 6)) return;
+
+        dynamic fonts = document.getElementsByTagName("font");
+        var fontCount = (int)fonts.length;
+        for (var index = 0; index < fontCount; index++)
+        {
+            dynamic font = fonts.item(index);
+            var rawSize = Convert.ToString(font.getAttribute("size")) ?? string.Empty;
+            if (NormalizeLegacyFontSize(rawSize) != maximumSize) continue;
+
+            font.style.fontFamily = "'Core Rules Friz Quadrata','Friz Quadrata',serif";
+            font.style.fontWeight = "bold";
+        }
+    }
+
+    private static int NormalizeLegacyFontSize(string rawSize)
+    {
+        var size = rawSize.Trim();
+        return size switch
+        {
+            "6" or "+3" => 6,
+            "5" or "+2" => 5,
+            _ => 0
+        };
     }
 
     private int GetMaximumAdndHeadingSize(HtmlDocumentEntry document)
@@ -1299,10 +1334,10 @@ public partial class MainWindow : Window
                     var html = File.ReadAllText(path);
                     foreach (Match match in Regex.Matches(
                                  html,
-                                 "<font\\b[^>]*\\bsize\\s*=\\s*[\\\"']?\\s*([56])(?=[\\\"'\\s>])",
+                                 "<font\\b[^>]*\\bsize\\s*=\\s*[\\\"']?\\s*(6|5|\\+3|\\+2)(?=[\\\"'\\s>])",
                                  RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
                     {
-                        maximum = Math.Max(maximum, match.Groups[1].Value[0] - '0');
+                        maximum = Math.Max(maximum, NormalizeLegacyFontSize(match.Groups[1].Value));
                         if (maximum == 6) break;
                     }
 
