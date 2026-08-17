@@ -48,12 +48,9 @@
             <Border x:Name="ButtonFace" Background="{TemplateBinding Background}"
                     BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
                     CornerRadius="2" Padding="{TemplateBinding Padding}">
-              <Grid>
-                <Border BorderBrush="#8AFFFFFF" BorderThickness="1,1,0,0" CornerRadius="1" />
-                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                  RecognizesAccessKey="True" />
-              </Grid>
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                RecognizesAccessKey="True" />
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
@@ -159,11 +156,13 @@
     </Style>
     <Style x:Key="InsetHighlightStyle" TargetType="Border">
       <Setter Property="BorderBrush" Value="#C7A568" />
-      <Setter Property="BorderThickness" Value="1,1,0,0" />
+      <Setter Property="BorderThickness" Value="0,0,2,2" />
+      <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
     <Style x:Key="InsetShadowStyle" TargetType="Border">
       <Setter Property="BorderBrush" Value="#120B08" />
-      <Setter Property="BorderThickness" Value="0,0,1,1" />
+      <Setter Property="BorderThickness" Value="2,2,0,0" />
+      <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
   </Application.Resources>
 </Application>
