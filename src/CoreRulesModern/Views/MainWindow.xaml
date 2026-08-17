@@ -12,8 +12,8 @@
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <Border Grid.Row="0" Background="{DynamicResource WoodBrush}" Padding="10,3"
-            BorderBrush="#B28A4D" BorderThickness="0,0,0,1">
+    <Border Grid.Row="0" Background="{StaticResource PaneHeaderBrush}" Padding="12,5"
+            BorderBrush="{StaticResource FrameBorderBrush}" BorderThickness="0,0,0,1">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
           <Button Content="Book library…" Click="SelectLibrary_Click" FontSize="11"
@@ -23,7 +23,8 @@
           <Button Content="Settings…" Click="Settings_Click" FontSize="11"
                   Height="22" MinHeight="0" Padding="7,0" Margin="2,0" />
         </StackPanel>
-        <TextBlock Text="AD&amp;D Core Rules Library" Foreground="#E34B3F" FontSize="17"
+        <TextBlock x:Name="ApplicationTitleText" Text="AD&amp;D Core Rules Library"
+                   Foreground="#E65749" FontSize="18"
                    FontFamily="Friz Quadrata" FontWeight="Bold"
                    VerticalAlignment="Center" />
       </DockPanel>
@@ -38,7 +39,8 @@
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
-      <Border Grid.Column="0" Background="{DynamicResource ParchmentBrush}" Padding="14">
+      <Border Grid.Column="0" Margin="10,10,5,10" Padding="12"
+              Style="{StaticResource ReaderFrameStyle}">
         <DockPanel>
           <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="4,4,4,12" Padding="10,7"
                    ToolTip="Filter books, characters and spells" TextChanged="SearchBox_TextChanged" />
@@ -91,7 +93,7 @@
               </ComboBox>
             </Grid>
           </Expander>
-          <TreeView x:Name="NavigationTree" FontSize="15" FontFamily="Friz Quadrata" FontWeight="Bold"
+          <TreeView x:Name="NavigationTree" FontSize="15" FontFamily="./Assets/Fonts/#Friz Quadrata" FontWeight="Bold"
                     Background="Transparent" BorderThickness="0"
                     SelectedItemChanged="NavigationTree_SelectedItemChanged">
             <TreeViewItem x:Name="BookmarksRoot" Header="Bookmarks" IsExpanded="True" />
@@ -105,17 +107,16 @@
       </Border>
 
       <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
-                    Background="{DynamicResource WoodBrush}" />
+                    Background="{StaticResource SplitterBrush}" />
 
       <Border x:Name="BookContentsPanel" Grid.Column="2" Visibility="Collapsed"
-              Margin="12,4,0,12" BorderBrush="#B28A4D" BorderThickness="2"
-              Background="{DynamicResource WoodBrush}" Padding="6">
+              Margin="5,10" Padding="4" Style="{StaticResource ReaderFrameStyle}">
         <Grid Background="{DynamicResource ParchmentBrush}">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <DockPanel Grid.Row="0" Background="{DynamicResource WoodBrush}" LastChildFill="True">
+          <DockPanel Grid.Row="0" Background="{StaticResource PaneHeaderBrush}" LastChildFill="True">
             <Button DockPanel.Dock="Right" Content="Hide" Click="ToggleBookContents_Click"
                     FontSize="11" Height="22" MinHeight="0" Padding="7,0" Margin="5"
                     ToolTip="Collapse the book contents panel" />
@@ -147,7 +148,7 @@
               <GridSplitter x:Name="ReferenceGridSplitter" Grid.Row="1" Height="6"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
-                            Background="{DynamicResource WoodBrush}" Cursor="SizeNS"
+                            Background="{StaticResource SplitterBrush}" Cursor="SizeNS"
                             ToolTip="Drag to resize the cover and contents panes" />
               <Grid Grid.Row="2">
                 <WebBrowser x:Name="LegacyContentsBrowser" Visibility="Collapsed"
@@ -165,10 +166,12 @@
 
       <GridSplitter x:Name="BookContentsSplitter" Grid.Column="3" Width="5"
                     Visibility="Collapsed" HorizontalAlignment="Stretch"
-                    Background="{DynamicResource WoodBrush}" />
+                    Background="{StaticResource SplitterBrush}" />
 
-      <Grid Grid.Column="4" Background="{DynamicResource WoodBrush}">
-        <StackPanel x:Name="WelcomePanel" Margin="40" MaxWidth="760" HorizontalAlignment="Left">
+      <Border Grid.Column="4" Margin="5,10,10,10" Padding="4"
+              Style="{StaticResource ReaderFrameStyle}" Background="{DynamicResource WoodBrush}">
+       <Grid Background="{DynamicResource WoodBrush}">
+        <StackPanel x:Name="WelcomePanel" Margin="30" MaxWidth="760" HorizontalAlignment="Left">
           <TextBlock Text="Your AD&amp;D library" FontSize="34" FontWeight="SemiBold" />
           <TextBlock x:Name="WelcomeSummary" Margin="0,10,0,22" FontSize="17" TextWrapping="Wrap"
                      Text="Choose the Core Rules folder containing WebHelp, then choose a folder containing exported HTML character sheets." />
@@ -182,14 +185,15 @@
           </Border>
         </StackPanel>
 
-        <Grid x:Name="DocumentPanel" Visibility="Collapsed" Margin="12,4,12,12">
+        <Grid x:Name="DocumentPanel" Visibility="Collapsed" Margin="0">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
           <Grid Grid.Row="0" Margin="0" ClipToBounds="True"
-                Background="{DynamicResource WoodBrush}">
+                Background="{StaticResource PaneHeaderBrush}">
             <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
@@ -229,7 +233,18 @@
               <Button x:Name="BookmarkPageButton" Content="Bookmark page" Click="BookmarkPage_Click"
                       ToolTip="Add or remove the current page from bookmarks" />
               <Button Content="Open in browser…" Click="OpenDocument_Click" />
-              <TextBlock Text="Find" VerticalAlignment="Center" Margin="10,0,4,0" Foreground="#FFF3D4" />
+            </WrapPanel>
+            <WrapPanel Grid.Row="1" Margin="4,0,4,4" VerticalAlignment="Center">
+              <WrapPanel.Resources>
+                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                  <Setter Property="FontSize" Value="11" />
+                  <Setter Property="Height" Value="20" />
+                  <Setter Property="MinHeight" Value="0" />
+                  <Setter Property="Padding" Value="7,0" />
+                  <Setter Property="Margin" Value="2,0" />
+                </Style>
+              </WrapPanel.Resources>
+              <TextBlock Text="Find" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="#FFF3D4" />
               <TextBox x:Name="FindTextBox" Width="160" Height="22" FontSize="12" Margin="2,0"
                        Padding="4,1" KeyDown="FindTextBox_KeyDown" TextChanged="FindTextBox_TextChanged"
                        ToolTip="Find text on the current page (Ctrl+F)" />
@@ -238,15 +253,14 @@
               <TextBlock x:Name="FindStatusText" VerticalAlignment="Center" Margin="5,0,0,0"
                          Foreground="#E1C99C" FontSize="11" />
             </WrapPanel>
-            <StackPanel Grid.Row="1" Margin="4,0,4,4">
+            <StackPanel Grid.Row="2" Margin="4,0,4,4">
               <TextBlock x:Name="DocumentTitleText" FontSize="20" FontFamily="ITC Korinna"
                          FontWeight="Bold" TextWrapping="Wrap" Foreground="#FFF3D4" />
-              <TextBlock x:Name="DocumentPathText" Margin="0,1,0,0" FontSize="10" Foreground="#E1C99C"
+              <TextBlock x:Name="DocumentPathText" Visibility="Collapsed" Margin="0,1,0,0" FontSize="10" Foreground="#E1C99C"
                          FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
             </StackPanel>
           </Grid>
-          <Border Grid.Row="1" BorderBrush="#B28A4D" BorderThickness="2"
-                  Background="{DynamicResource ParchmentBrush}">
+          <Border Grid.Row="1" Background="{DynamicResource ParchmentBrush}">
             <Grid>
               <WebBrowser x:Name="LegacyDocumentBrowser" Visibility="Collapsed"
                           Navigating="LegacyDocumentBrowser_Navigating"
@@ -258,12 +272,12 @@
           </Border>
         </Grid>
 
-        <Grid x:Name="SpellPanel" Visibility="Collapsed" Margin="12,4,12,12">
+        <Grid x:Name="SpellPanel" Visibility="Collapsed" Margin="0">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <DockPanel Grid.Row="0" Margin="0,0,0,12" Background="{DynamicResource WoodBrush}" LastChildFill="True">
+          <DockPanel Grid.Row="0" Margin="0,0,0,4" Background="{StaticResource PaneHeaderBrush}" LastChildFill="True">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,8">
               <Button x:Name="SpellBookmarkButton" Content="Bookmark spell" Click="SpellBookmark_Click"
                       ToolTip="Add or remove this spell from bookmarks" />
@@ -287,18 +301,17 @@
                          FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
             </StackPanel>
           </DockPanel>
-          <Border Grid.Row="1" BorderBrush="#B28A4D" BorderThickness="2"
-                  Background="{DynamicResource ParchmentBrush}">
+          <Border Grid.Row="1" Background="{DynamicResource ParchmentBrush}">
             <wv2:WebView2 x:Name="SpellBrowser" />
           </Border>
         </Grid>
 
-        <Grid x:Name="OnlinePanel" Visibility="Collapsed" Margin="22">
+        <Grid x:Name="OnlinePanel" Visibility="Collapsed" Margin="0">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
           </Grid.RowDefinitions>
-          <DockPanel Grid.Row="0" Margin="0,0,0,12" Background="{DynamicResource WoodBrush}">
+          <DockPanel Grid.Row="0" Margin="0,0,0,4" Background="{StaticResource PaneHeaderBrush}">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
               <Button Content="Back" Click="OnlineBack_Click" />
               <Button Content="Forward" Click="OnlineForward_Click" />
@@ -314,16 +327,16 @@
                          FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
             </StackPanel>
           </DockPanel>
-          <Border Grid.Row="1" BorderBrush="#8A693E" BorderThickness="1"
-                  Background="{DynamicResource ParchmentBrush}">
+          <Border Grid.Row="1" Background="{DynamicResource ParchmentBrush}">
             <wv2:WebView2 x:Name="OnlineBrowser"
                           NavigationStarting="OnlineBrowser_NavigationStarting"
                           SourceChanged="OnlineBrowser_SourceChanged"
                           NavigationCompleted="OnlineBrowser_NavigationCompleted" />
           </Border>
         </Grid>
+       </Grid>
+      </Border>
       </Grid>
-    </Grid>
 
     <StatusBar Grid.Row="2">
       <StatusBarItem><TextBlock x:Name="FooterStatus" Text="Ready" /></StatusBarItem>

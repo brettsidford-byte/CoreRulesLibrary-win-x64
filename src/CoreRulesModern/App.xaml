@@ -11,7 +11,13 @@
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColour}" />
     <!-- Safe startup fallbacks. MainWindow replaces these with texture brushes
          after its XAML has loaded, so a missing asset can never prevent launch. -->
-    <SolidColorBrush x:Key="WoodBrush" Color="#3B2114" />
+    <LinearGradientBrush x:Key="WoodBrush" StartPoint="0,0" EndPoint="0,1">
+      <GradientStop Color="#352218" Offset="0" />
+      <GradientStop Color="#24150F" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="PaneHeaderBrush" Color="#312016" />
+    <SolidColorBrush x:Key="FrameBorderBrush" Color="#9B7842" />
+    <SolidColorBrush x:Key="SplitterBrush" Color="#17100C" />
     <SolidColorBrush x:Key="ParchmentBrush" Color="#F5E8C8" />
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI" />
@@ -23,6 +29,13 @@
       <Setter Property="Padding" Value="14,8" />
       <Setter Property="Margin" Value="4" />
       <Setter Property="MinHeight" Value="36" />
+    </Style>
+    <Style x:Key="ReaderFrameStyle" TargetType="Border">
+      <Setter Property="BorderBrush" Value="{StaticResource FrameBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Background" Value="{DynamicResource ParchmentBrush}" />
+      <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
   </Application.Resources>
 </Application>

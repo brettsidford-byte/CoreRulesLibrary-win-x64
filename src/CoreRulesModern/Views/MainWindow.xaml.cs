@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     {
         _fontLoader.Load();
         InitializeComponent();
+        ApplyApplicationTitleFont();
         LoadInterfaceTextures();
         Loaded += (_, _) => LoadSavedLibrary();
         Closed += (_, _) =>
@@ -71,8 +72,26 @@ public partial class MainWindow : Window
 
     private static void LoadInterfaceTextures()
     {
-        TrySetTextureBrush("WoodBrush", "WoodTexture.jpg", Stretch.None, true);
         TrySetTextureBrush("ParchmentBrush", "ParchmentTexture.jpg", Stretch.None, true);
+    }
+
+    private void ApplyApplicationTitleFont()
+    {
+        var fontPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts", "Friz Quadrata Bold.otf");
+        var fontFolder = Path.GetDirectoryName(fontPath);
+        if (!File.Exists(fontPath) || fontFolder is null) return;
+
+        try
+        {
+            ApplicationTitleText.FontFamily = new FontFamily(
+                new Uri(fontFolder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar),
+                "./#Friz Quadrata");
+            ApplicationTitleText.FontWeight = FontWeights.Bold;
+        }
+        catch (ArgumentException)
+        {
+            // The XAML family name remains as a safe fallback.
+        }
     }
 
     private static void TrySetTextureBrush(string resourceKey, string fileName, Stretch stretch, bool tile = false)
@@ -370,13 +389,23 @@ public partial class MainWindow : Window
         bool expand)
     {
         var group = new TreeViewItem { Header = title, IsExpanded = expand };
-        foreach (var entry in entries)
+        foreach (var entry in entries
+                     .OrderBy(entry => BookSortTitle(entry.Title), StringComparer.CurrentCultureIgnoreCase)
+                     .ThenBy(entry => entry.Title, StringComparer.CurrentCultureIgnoreCase))
         {
-            group.Items.Add(new TreeViewItem { Header = entry.Title, ToolTip = entry.StartPage, Tag = entry });
+            group.Items.Add(new TreeViewItem
+            {
+                Header = entry.Title,
+                ToolTip = $"{entry.Title}\n{entry.StartPage}",
+                Tag = entry
+            });
         }
 
         if (group.Items.Count > 0) parent.Items.Add(group);
     }
+
+    private static string BookSortTitle(string title) =>
+        title.StartsWith("The ", StringComparison.CurrentCultureIgnoreCase) ? title[4..] : title;
 
     private static void AddSpellCasterGroup(
         ItemsControl parent,
