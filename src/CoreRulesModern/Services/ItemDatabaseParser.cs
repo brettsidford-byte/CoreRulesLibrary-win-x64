@@ -169,9 +169,8 @@ public sealed class ItemDatabaseParser
         if (typeOffset < 0) return;
         var hands = ReadUInt32(data, typeOffset - 0x85);
 
-        var damageType = ((char)data[typeOffset + 1]).ToString();
         var cursor = typeOffset;
-        _ = ReadArchiveString(data, cursor, out cursor);
+        var damageType = ReadArchiveString(data, cursor, out cursor);
         _ = ReadArchiveString(data, cursor, out cursor);
         if (cursor + 36 > data.Length) return;
 
@@ -208,7 +207,7 @@ public sealed class ItemDatabaseParser
         if (shortRange > 0) Add(fields, "Short range", shortRange.ToString(CultureInfo.InvariantCulture));
         if (mediumRange > 0) Add(fields, "Medium range", mediumRange.ToString(CultureInfo.InvariantCulture));
         if (longRange > 0) Add(fields, "Long range", longRange.ToString(CultureInfo.InvariantCulture));
-        Add(fields, "Damage type", damageType switch { "S" => "Slashing", "B" => "Bludgeoning", "P" => "Piercing", _ => damageType });
+        Add(fields, "Damage type", DamageTypeLabel(damageType));
         if (!string.IsNullOrWhiteSpace(rate)) Add(fields, "ROF", rate);
         if (!string.IsNullOrWhiteSpace(size)) Add(fields, "Size", size);
     }
@@ -240,9 +239,25 @@ public sealed class ItemDatabaseParser
     {
         var end = Math.Min(data.Length - 1, 0x190);
         for (var offset = 0x140; offset < end; offset++)
-            if (data[offset] == 1 && data[offset + 1] is (byte)'S' or (byte)'B' or (byte)'P') return offset;
+        {
+            var value = ReadArchiveString(data, offset, out var next);
+            if (next > offset && IsDamageType(value)) return offset;
+        }
         return -1;
     }
+
+    private static bool IsDamageType(string value) => value.Length is > 0 and <= 5 &&
+        value.Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .All(part => part is "S" or "B" or "P");
+
+    private static string DamageTypeLabel(string value) => string.Join(" / ",
+        value.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(part => part switch
+        {
+            "S" => "Slashing",
+            "B" => "Bludgeoning",
+            "P" => "Piercing",
+            _ => part
+        }));
 
     private static string? FindCustomDescription(ReadOnlySpan<byte> data, string name)
     {
@@ -286,7 +301,7 @@ public sealed class ItemDatabaseParser
         var denomination = name.ToLowerInvariant() switch
         {
             "sling" or "sling, sling bullet" or "bag" => "Copper",
-            "sack, large" or "baladrana" => "Silver",
+            "sack, large" or "baladrana" or "adze" => "Silver",
             "axe, battle" or "sword, two-handed" or "sword, two-handed +1" or
             "sword, bastard" or "sword, bastard (two-handed)" or "axe, hand/throwing" or
             "short bow" or "short bow, flight arrow" or "full armor, elven chain" or

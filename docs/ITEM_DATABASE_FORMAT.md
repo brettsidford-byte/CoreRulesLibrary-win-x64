@@ -22,6 +22,8 @@ schools and other non-item records and are intentionally skipped.
 collection counts and record boundaries. It opens `Parts.dat` with read-only access.
 The viewer decodes user-facing costs, XP, weight, capacity, armour class and weapon
 statistics. Internal character-builder flags are deliberately omitted. Damage type
-codes are expanded to Slashing, Bludgeoning and Piercing. Imported records with an
-embedded custom-help string display that description, while built-in records retain
-their original Core Rules help-topic identifier.
+codes are expanded to Slashing, Bludgeoning and Piercing, including combined codes
+such as `P/S`. Imported records with an embedded custom-help string display that
+description. For built-in records, the viewer converts the selected installation's
+own `Help/Equip.hlp` into a local cache and displays the matching topic inside the
+item panel; the application does not contain or distribute the Core Rules help prose.

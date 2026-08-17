@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
@@ -9,7 +8,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Interop;
 using CoreRulesModern.Models;
 using CoreRulesModern.Services;
 using Microsoft.Web.WebView2.Core;
@@ -33,6 +31,7 @@ public partial class MainWindow : Window
     private readonly CharacterSheetCatalogue _characterCatalogue = new();
     private readonly SpellDatabaseParser _spellParser = new();
     private readonly ItemDatabaseParser _itemParser = new();
+    private readonly ItemHelpCatalogue _itemHelp = new();
     private readonly SpellHelpTopicCatalogue _spellHelpTopics = new();
     private readonly PackagedFontLoader _fontLoader = new();
     private readonly List<HtmlDocumentEntry> _books = [];
@@ -310,7 +309,7 @@ public partial class MainWindow : Window
                 var itemNode = new TreeViewItem
                 {
                     Header = item.Name,
-                    ToolTip = $"{CategoryLabel(item.Category)} · Right-click for original help",
+                    ToolTip = $"{CategoryLabel(item.Category)} · Select to view details and description",
                     Tag = item
                 };
                 itemNode.MouseRightButtonUp += ItemNode_MouseRightButtonUp;
@@ -550,100 +549,8 @@ public partial class MainWindow : Window
         if (sender is not TreeViewItem { Tag: ItemRecord item } node) return;
         node.IsSelected = true;
         e.Handled = true;
-        ShowItemHelp(item);
+        ShowItem(item);
     }
-
-    private void ShowItemHelp(ItemRecord item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.CustomDescription))
-        {
-            ShowCustomItemHelp(item);
-            return;
-        }
-
-        if (item.HelpTopicId == 0)
-        {
-            MessageBox.Show(this,
-                "This item has neither an embedded description nor an original Core Rules help-topic reference. " +
-                "The item record may be incomplete.",
-                item.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        var helpPath = FindEquipmentHelpPath();
-        if (helpPath is null)
-        {
-            MessageBox.Show(this,
-                "The original equipment help file could not be found. Expected Help\\Equip.hlp beneath the " +
-                "selected Core Rules installation.",
-                item.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        var command = item.Category == ItemCategory.Equipment ? HelpContextPopup : HelpContext;
-        try
-        {
-            var owner = new WindowInteropHelper(this).Handle;
-            if (WinHelp(owner, helpPath, command, new UIntPtr(item.HelpTopicId))) return;
-            var error = Marshal.GetLastWin32Error();
-            MessageBox.Show(this,
-                $"Windows could not open the original Core Rules help topic.\n\n" +
-                $"Help file: {helpPath}\nTopic: {item.HelpTopicId}\nWindows error: {error}\n\n" +
-                "The legacy Windows Help component may not be available on this computer.",
-                item.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        catch (Exception exception)
-        {
-            MessageBox.Show(this,
-                $"Windows could not open the original Core Rules help topic.\n\n" +
-                $"Help file: {helpPath}\nTopic: {item.HelpTopicId}\n\n{exception.Message}",
-                item.Name, MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-    }
-
-    private string? FindEquipmentHelpPath()
-    {
-        if (string.IsNullOrWhiteSpace(_libraryRoot)) return null;
-        var helpFolder = Path.Combine(_libraryRoot, "Help");
-        if (!Directory.Exists(helpFolder)) return null;
-        return Directory.EnumerateFiles(helpFolder, "Equip.hlp", SearchOption.TopDirectoryOnly)
-            .FirstOrDefault();
-    }
-
-    private void ShowCustomItemHelp(ItemRecord item)
-    {
-        var text = new TextBlock
-        {
-            Text = item.CustomDescription,
-            TextWrapping = TextWrapping.Wrap,
-            FontFamily = new FontFamily("Georgia"),
-            FontSize = 16,
-            Margin = new Thickness(20)
-        };
-        var window = new Window
-        {
-            Title = item.Name,
-            Owner = this,
-            Width = 650,
-            Height = 500,
-            MinWidth = 420,
-            MinHeight = 280,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = new ScrollViewer
-            {
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Content = text
-            }
-        };
-        window.Show();
-    }
-
-    private const uint HelpContext = 0x0001;
-    private const uint HelpContextPopup = 0x0008;
-
-    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool WinHelp(IntPtr owner, string helpFile, uint command, UIntPtr data);
 
     private void OpenSavedPage(SavedPage savedPage)
     {
@@ -816,9 +723,11 @@ public partial class MainWindow : Window
         ItemSourceText.Text = $"Database\\Parts.dat · {CategoryLabel(item.Category)} · CPart record {item.DatabaseIndex:N0}";
         try
         {
+            FooterStatus.Text = $"Loading {item.Name} description…";
+            var description = await _itemHelp.FindAsync(_libraryRoot, item);
             await ItemBrowser.EnsureCoreWebView2Async();
             HardenWebView(ItemBrowser.CoreWebView2);
-            ItemBrowser.NavigateToString(CreateItemHtml(item));
+            ItemBrowser.NavigateToString(CreateItemHtml(item, description));
         }
         catch (Exception exception)
         {
@@ -828,7 +737,7 @@ public partial class MainWindow : Window
         FooterStatus.Text = $"Displaying {item.Name} · read-only";
     }
 
-    private string CreateItemHtml(ItemRecord item)
+    private string CreateItemHtml(ItemRecord item, string? description)
     {
         var html = new StringBuilder();
         html.Append("<!doctype html><html><head><style>").Append(CreatePackagedFontCss());
@@ -848,10 +757,10 @@ public partial class MainWindow : Window
             foreach (var field in item.Fields) html.Append("<tr><th>").Append(Encode(field.Label)).Append("</th><td>").Append(Encode(field.Value)).Append("</td></tr>");
             html.Append("</tbody></table>");
         }
-        if (!string.IsNullOrWhiteSpace(item.CustomDescription))
-            html.Append("<h2>Custom help</h2><div class=\"description\">").Append(Encode(item.CustomDescription)).Append("</div>");
+        if (!string.IsNullOrWhiteSpace(description))
+            html.Append("<h2>Description</h2><div class=\"description\">").Append(Encode(description)).Append("</div>");
         else if (item.HelpTopicId > 0)
-            html.Append("<p class=\"muted\">Right-click this item in the list to open its original Core Rules help.</p>");
+            html.Append("<p class=\"muted\">The linked description could not be decoded from Help\\EQUIP.HLP.</p>");
         else
             html.Append("<p class=\"muted\">No description reference was found in this item record.</p>");
         html.Append("<p class=\"muted\">Read-only Core Rules item record.</p></body></html>");

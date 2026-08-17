@@ -24,6 +24,15 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: true
+
+      - name: Build WinHelp decoder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force native-tools | Out-Null
+          msbuild third_party/helpdeco/vs2022/helpdeco.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:OutDir="$pwd\native-tools\"
+          if (-not (Test-Path native-tools/helpdeco.exe)) { throw "helpdeco.exe was not built." }
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
