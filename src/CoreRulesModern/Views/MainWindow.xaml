@@ -91,6 +91,22 @@
               </ComboBox>
             </Grid>
           </Expander>
+          <Expander DockPanel.Dock="Top" Header="Item filters" Margin="4,0,4,12"
+                    FontFamily="ITC Korinna" FontWeight="Bold">
+            <Grid Margin="6,8,2,2">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="82" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+              <TextBlock Text="Category" VerticalAlignment="Center" Margin="0,0,6,0" />
+              <ComboBox x:Name="ItemCategoryFilterBox" Grid.Column="1"
+                        SelectionChanged="ItemFilter_Changed" SelectedValuePath="Tag">
+                <ComboBoxItem Content="All items" Tag="All" />
+                <ComboBoxItem Content="Weapons" Tag="Weapon" />
+                <ComboBoxItem Content="Armour" Tag="Armour" />
+                <ComboBoxItem Content="Equipment" Tag="Equipment" />
+                <ComboBoxItem Content="Magical items" Tag="MagicalItem" />
+                <ComboBoxItem Content="Treasure and materials" Tag="Treasure" />
+              </ComboBox>
+            </Grid>
+          </Expander>
           <TreeView x:Name="NavigationTree" FontSize="15" FontFamily="Friz Quadrata" FontWeight="Bold"
                     Background="Transparent" BorderThickness="0"
                     SelectedItemChanged="NavigationTree_SelectedItemChanged">
@@ -99,6 +115,7 @@
             <TreeViewItem x:Name="CharactersRoot" Header="Characters" IsExpanded="True" />
             <TreeViewItem x:Name="BooksRoot" Header="Books" IsExpanded="True" />
             <TreeViewItem x:Name="SpellsRoot" Header="Spells" IsExpanded="True" />
+            <TreeViewItem x:Name="ItemsRoot" Header="Items" IsExpanded="True" />
             <TreeViewItem x:Name="OnlineResourcesRoot" Header="Online Resources" IsExpanded="True" />
           </TreeView>
         </DockPanel>
@@ -269,6 +286,20 @@
           <Border Grid.Row="1" BorderBrush="#8A693E" BorderThickness="1"
                   Background="{DynamicResource ParchmentBrush}">
             <wv2:WebView2 x:Name="SpellBrowser" />
+          </Border>
+        </Grid>
+
+        <Grid x:Name="ItemPanel" Visibility="Collapsed" Margin="22">
+          <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+          <StackPanel Grid.Row="0" Margin="12,8,12,12" Background="{DynamicResource WoodBrush}">
+            <TextBlock x:Name="ItemTitleText" FontSize="30" FontFamily="ITC Korinna"
+                       FontWeight="Bold" TextWrapping="Wrap" Foreground="#FFF3D4" />
+            <TextBlock x:Name="ItemSourceText" Margin="0,4,0,0" FontSize="12" Foreground="#E1C99C"
+                       FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
+          </StackPanel>
+          <Border Grid.Row="1" BorderBrush="#8A693E" BorderThickness="1"
+                  Background="{DynamicResource ParchmentBrush}">
+            <wv2:WebView2 x:Name="ItemBrowser" />
           </Border>
         </Grid>
 

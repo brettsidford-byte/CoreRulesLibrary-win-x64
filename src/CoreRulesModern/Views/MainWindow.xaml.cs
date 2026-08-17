@@ -30,12 +30,16 @@ public partial class MainWindow : Window
     private readonly ManualCatalogue _manualCatalogue = new();
     private readonly CharacterSheetCatalogue _characterCatalogue = new();
     private readonly SpellDatabaseParser _spellParser = new();
+    private readonly ItemDatabaseParser _itemParser = new();
+    private readonly ItemHelpCatalogue _itemHelp = new();
     private readonly SpellHelpTopicCatalogue _spellHelpTopics = new();
     private readonly PackagedFontLoader _fontLoader = new();
     private readonly List<HtmlDocumentEntry> _books = [];
     private readonly List<HtmlDocumentEntry> _characters = [];
     private readonly List<SpellRecord> _spells = [];
+    private readonly List<ItemRecord> _items = [];
     private readonly List<string> _spellLoadErrors = [];
+    private readonly List<string> _itemLoadErrors = [];
     private UserSettingsStore.UserSettings _settings = new();
     private HtmlDocumentEntry? _selectedDocument;
     private OnlineResourceEntry? _selectedOnlineResource;
@@ -50,6 +54,7 @@ public partial class MainWindow : Window
     private ContextPanelMode _contextPanelMode;
     private SpellRecord? _displayedMainSpell;
     private SpellRecord? _previewedSpell;
+    private string? _libraryRoot;
 
     private bool UseLegacyDocumentBrowser =>
         _selectedDocument?.Kind == HtmlDocumentKind.Book &&
@@ -126,6 +131,7 @@ public partial class MainWindow : Window
         LoadLibrary(libraryPath);
         LoadCharacters(_settings.CharacterSheetsPath);
         InitialiseSpellFilters();
+        ItemCategoryFilterBox.SelectedValue = "All";
         RefreshNavigation();
         TryRestoreLastPage();
     }
@@ -208,14 +214,36 @@ public partial class MainWindow : Window
     {
         _books.Clear();
         _spells.Clear();
+        _items.Clear();
         _spellLoadErrors.Clear();
+        _itemLoadErrors.Clear();
+        _libraryRoot = root;
         if (!string.IsNullOrWhiteSpace(root) && Directory.Exists(root))
         {
             _books.AddRange(_manualCatalogue.Read(root));
             _spellHelpTopics.Load(root);
             LoadSpellDatabase(Path.Combine(root, "Database", "Spells.dat"), SpellDatabaseKind.Core);
             LoadSpellDatabase(Path.Combine(root, "UserDbas", "SpellsU.dat"), SpellDatabaseKind.User);
+            LoadItemDatabase(Path.Combine(root, "Database", "Parts.dat"));
             _settings = _settings with { LibraryPath = Path.GetFullPath(root) };
+        }
+    }
+
+    private void LoadItemDatabase(string path)
+    {
+        if (!File.Exists(path)) return;
+        try
+        {
+            _items.AddRange(_itemParser.Parse(path).Items);
+        }
+        catch (ItemDatabaseFormatException exception)
+        {
+            _itemLoadErrors.Add($"{Path.GetFileName(path)}: {exception.Message}");
+        }
+        catch (Exception exception)
+        {
+            CrashLog.TryWrite(exception, $"loading item database {path}");
+            _itemLoadErrors.Add($"{Path.GetFileName(path)}: unexpected item-decoder error; see {CrashLog.LogPath}");
         }
     }
 
@@ -251,14 +279,55 @@ public partial class MainWindow : Window
         Populate(CharactersRoot, _characters.Where(item => Matches(item, filter)), "Characters", _characters.Count);
         PopulateBooks(filter);
         PopulateSpells(filter);
+        PopulateItems(filter);
         PopulateOnlineResources(filter);
         LibraryPathText.Text = _settings.LibraryPath ?? "Not selected";
         CharacterPathText.Text = _settings.CharacterSheetsPath ?? "Not selected";
-        WelcomeSummary.Text = $"{_books.Count:N0} books, {_characters.Count:N0} character sheets and {_spells.Count:N0} spell records are available.";
-        FooterStatus.Text = _spellLoadErrors.Count == 0
-            ? $"{_books.Count:N0} books · {_characters.Count:N0} characters · {_spells.Count:N0} spells"
-            : $"{_books.Count:N0} books · {_characters.Count:N0} characters · {_spells.Count:N0} spells · {_spellLoadErrors.Count} database warning(s)";
+        WelcomeSummary.Text = $"{_books.Count:N0} books, {_characters.Count:N0} character sheets, {_spells.Count:N0} spells and {_items.Count:N0} items are available.";
+        var warnings = _spellLoadErrors.Count + _itemLoadErrors.Count;
+        FooterStatus.Text = $"{_books.Count:N0} books · {_characters.Count:N0} characters · {_spells.Count:N0} spells · {_items.Count:N0} items" +
+            (warnings == 0 ? string.Empty : $" · {warnings} database warning(s)");
     }
+
+    private void PopulateItems(string filter)
+    {
+        ItemsRoot.Items.Clear();
+        var selected = Convert.ToString(ItemCategoryFilterBox.SelectedValue) ?? "All";
+        var matches = _items
+            .Where(item => filter.Length == 0 || item.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
+                           item.Fields.Any(field => field.Label.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
+                                                    field.Value.Contains(filter, StringComparison.CurrentCultureIgnoreCase)) ||
+                           (item.CustomDescription?.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ?? false))
+            .Where(item => selected == "All" || item.Category.ToString() == selected)
+            .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+        foreach (var group in matches.GroupBy(item => item.Category).OrderBy(group => group.Key))
+        {
+            var node = new TreeViewItem { Header = $"{CategoryLabel(group.Key)} ({group.Count():N0})", IsExpanded = filter.Length > 0 || selected != "All" };
+            foreach (var item in group)
+            {
+                var itemNode = new TreeViewItem
+                {
+                    Header = item.Name,
+                    ToolTip = $"{CategoryLabel(item.Category)} · Select to view details and description",
+                    Tag = item
+                };
+                itemNode.MouseRightButtonUp += ItemNode_MouseRightButtonUp;
+                node.Items.Add(itemNode);
+            }
+            ItemsRoot.Items.Add(node);
+        }
+        ItemsRoot.Header = matches.Length == _items.Count ? $"Items ({_items.Count:N0})" : $"Items ({matches.Length:N0} of {_items.Count:N0})";
+    }
+
+    private static string CategoryLabel(ItemCategory category) => category switch
+    {
+        ItemCategory.Weapon => "Weapons",
+        ItemCategory.Armour => "Armour",
+        ItemCategory.Equipment => "Equipment",
+        ItemCategory.MagicalItem => "Magical items",
+        _ => "Treasure and materials"
+    };
 
     private void PopulateBooks(string filter)
     {
@@ -448,6 +517,11 @@ public partial class MainWindow : Window
         RefreshNavigation();
     }
 
+    private void ItemFilter_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (IsLoaded && !_initialisingFilters) RefreshNavigation();
+    }
+
     private void NavigationTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         switch (e.NewValue)
@@ -458,6 +532,9 @@ public partial class MainWindow : Window
             case TreeViewItem { Tag: SpellRecord spell }:
                 ShowSpell(spell);
                 break;
+            case TreeViewItem { Tag: ItemRecord item }:
+                ShowItem(item);
+                break;
             case TreeViewItem { Tag: OnlineResourceEntry resource }:
                 ShowOnlineResource(resource);
                 break;
@@ -465,6 +542,14 @@ public partial class MainWindow : Window
                 OpenSavedPage(savedPage.Page);
                 break;
         }
+    }
+
+    private void ItemNode_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not TreeViewItem { Tag: ItemRecord item } node) return;
+        node.IsSelected = true;
+        e.Handled = true;
+        ShowItem(item);
     }
 
     private void OpenSavedPage(SavedPage savedPage)
@@ -530,6 +615,7 @@ public partial class MainWindow : Window
         _selectedOnlineResource = null;
         WelcomePanel.Visibility = Visibility.Collapsed;
         SpellPanel.Visibility = Visibility.Collapsed;
+        ItemPanel.Visibility = Visibility.Collapsed;
         OnlinePanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Visible;
         DocumentTitleText.Text = document.Title;
@@ -600,6 +686,7 @@ public partial class MainWindow : Window
         WelcomePanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Collapsed;
         OnlinePanel.Visibility = Visibility.Collapsed;
+        ItemPanel.Visibility = Visibility.Collapsed;
         SpellPanel.Visibility = Visibility.Visible;
         SpellTitleText.Text = spell.Name;
         SpellSourceText.Text = spell.DatabaseKind == SpellDatabaseKind.Core
@@ -619,6 +706,66 @@ public partial class MainWindow : Window
                 "Display spell", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         FooterStatus.Text = $"Displaying {spell.Name} · read-only";
+    }
+
+    private async void ShowItem(ItemRecord item)
+    {
+        _selectedDocument = null;
+        _selectedOnlineResource = null;
+        _displayedMainSpell = null;
+        HideBookContents();
+        WelcomePanel.Visibility = Visibility.Collapsed;
+        DocumentPanel.Visibility = Visibility.Collapsed;
+        SpellPanel.Visibility = Visibility.Collapsed;
+        OnlinePanel.Visibility = Visibility.Collapsed;
+        ItemPanel.Visibility = Visibility.Visible;
+        ItemTitleText.Text = item.Name;
+        ItemSourceText.Text = $"Database\\Parts.dat · {CategoryLabel(item.Category)} · CPart record {item.DatabaseIndex:N0}";
+        try
+        {
+            FooterStatus.Text = $"Loading {item.Name} description…";
+            var description = await _itemHelp.FindAsync(_libraryRoot, item);
+            await ItemBrowser.EnsureCoreWebView2Async();
+            HardenWebView(ItemBrowser.CoreWebView2);
+            ItemBrowser.NavigateToString(CreateItemHtml(item, description, _itemHelp.LastError));
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"This item could not be displayed.\n\n{exception.Message}",
+                "Display item", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        FooterStatus.Text = $"Displaying {item.Name} · read-only";
+    }
+
+    private string CreateItemHtml(ItemRecord item, string? description, string? descriptionError)
+    {
+        var html = new StringBuilder();
+        html.Append("<!doctype html><html><head><style>").Append(CreatePackagedFontCss());
+        html.Append("html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
+        html.Append("body{margin:22px;color:#17212b;background-color:#f5e8c8;background-image:")
+            .Append(CreateParchmentBackgroundImage())
+            .Append(";background-repeat:repeat;background-size:768px 768px;font-size:16px;line-height:1.45}");
+        html.Append(".badge{display:inline-block;background:#8d2f23;color:#fff;padding:4px 9px;border-radius:3px}");
+        html.Append("h2{color:#8d2f23;margin-top:24px}.facts{border-collapse:collapse;min-width:360px}.facts th,.facts td{padding:6px 12px;border-bottom:1px solid #b99f72;text-align:left}.facts th{color:#5d211a}.description{white-space:pre-wrap}.muted{color:#657078;font-style:italic}");
+        html.Append("</style></head><body><span class=\"badge\">").Append(Encode(CategoryLabel(item.Category))).Append("</span>");
+        html.Append("<h2>Item details</h2>");
+        if (item.Fields.Count == 0)
+            html.Append("<p class=\"muted\">This item has no additional displayable values.</p>");
+        else
+        {
+            html.Append("<table class=\"facts\"><tbody>");
+            foreach (var field in item.Fields) html.Append("<tr><th>").Append(Encode(field.Label)).Append("</th><td>").Append(Encode(field.Value)).Append("</td></tr>");
+            html.Append("</tbody></table>");
+        }
+        if (!string.IsNullOrWhiteSpace(description))
+            html.Append("<h2>Description</h2><div class=\"description\">").Append(Encode(description)).Append("</div>");
+        else if (item.HelpTopicId > 0)
+            html.Append("<p class=\"muted\">").Append(Encode(descriptionError ??
+                "The linked description could not be decoded from Help\\EQUIP.HLP.")).Append("</p>");
+        else
+            html.Append("<p class=\"muted\">No description reference was found in this item record.</p>");
+        html.Append("<p class=\"muted\">Read-only Core Rules item record.</p></body></html>");
+        return html.ToString();
     }
 
     private async Task ShowSpellInContextPanelAsync(SpellRecord spell)
@@ -656,6 +803,7 @@ public partial class MainWindow : Window
         HideBookContents();
         WelcomePanel.Visibility = Visibility.Collapsed;
         SpellPanel.Visibility = Visibility.Collapsed;
+        ItemPanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Collapsed;
         OnlinePanel.Visibility = Visibility.Visible;
         OnlineTitleText.Text = resource.Title;
