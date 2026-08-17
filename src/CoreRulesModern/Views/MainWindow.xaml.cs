@@ -290,7 +290,9 @@ public partial class MainWindow : Window
         var selected = Convert.ToString(ItemCategoryFilterBox.SelectedValue) ?? "All";
         var matches = _items
             .Where(item => filter.Length == 0 || item.Name.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
-                           item.StoredText.Any(value => value.Contains(filter, StringComparison.CurrentCultureIgnoreCase)))
+                           item.Fields.Any(field => field.Label.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ||
+                                                    field.Value.Contains(filter, StringComparison.CurrentCultureIgnoreCase)) ||
+                           (item.CustomDescription?.Contains(filter, StringComparison.CurrentCultureIgnoreCase) ?? false))
             .Where(item => selected == "All" || item.Category.ToString() == selected)
             .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToArray();
