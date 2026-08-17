@@ -18,6 +18,13 @@
     <SolidColorBrush x:Key="PaneHeaderBrush" Color="#312016" />
     <SolidColorBrush x:Key="FrameBorderBrush" Color="#9B7842" />
     <SolidColorBrush x:Key="SplitterBrush" Color="#17100C" />
+    <SolidColorBrush x:Key="ControlFaceBrush" Color="#4A3020" />
+    <SolidColorBrush x:Key="ControlHoverBrush" Color="#62442C" />
+    <SolidColorBrush x:Key="ControlPressedBrush" Color="#281A12" />
+    <SolidColorBrush x:Key="ControlTextBrush" Color="#FFF2D4" />
+    <SolidColorBrush x:Key="ControlDisabledBrush" Color="#40372F" />
+    <SolidColorBrush x:Key="ScrollTrackBrush" Color="#1D130E" />
+    <SolidColorBrush x:Key="ScrollThumbBrush" Color="#765531" />
     <SolidColorBrush x:Key="ParchmentBrush" Color="#F5E8C8" />
     <Style TargetType="Window">
       <Setter Property="FontFamily" Value="Segoe UI" />
@@ -26,9 +33,122 @@
       <Setter Property="Background" Value="{DynamicResource ParchmentBrush}" />
     </Style>
     <Style TargetType="Button">
+      <Setter Property="FontFamily" Value="ITC Korinna" />
+      <Setter Property="Foreground" Value="{StaticResource ControlTextBrush}" />
+      <Setter Property="Background" Value="{StaticResource ControlFaceBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource FrameBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Padding" Value="14,8" />
       <Setter Property="Margin" Value="4" />
       <Setter Property="MinHeight" Value="36" />
+      <Setter Property="SnapsToDevicePixels" Value="True" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ButtonFace" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="2" Padding="{TemplateBinding Padding}">
+              <Grid>
+                <Border BorderBrush="#8AFFFFFF" BorderThickness="1,1,0,0" CornerRadius="1" />
+                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  RecognizesAccessKey="True" />
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ButtonFace" Property="Background" Value="{StaticResource ControlHoverBrush}" />
+                <Setter TargetName="ButtonFace" Property="BorderBrush" Value="#C5A369" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="ButtonFace" Property="Background" Value="{StaticResource ControlPressedBrush}" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="ButtonFace" Property="BorderBrush" Value="#E0C17D" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="ButtonFace" Property="Background" Value="{StaticResource ControlDisabledBrush}" />
+                <Setter Property="Foreground" Value="#9E9488" />
+                <Setter Property="Opacity" Value="0.72" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="ComboBox">
+      <Setter Property="FontFamily" Value="ITC Korinna" />
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="FontFamily" Value="ITC Korinna" />
+    </Style>
+    <Style x:Key="ScrollPageButtonStyle" TargetType="RepeatButton">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RepeatButton">
+            <Border Background="{TemplateBinding Background}" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="ScrollThumbStyle" TargetType="Thumb">
+      <Setter Property="MinWidth" Value="14" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Thumb">
+            <Border x:Name="ThumbFace" Margin="2" Background="{StaticResource ScrollThumbBrush}"
+                    BorderBrush="{StaticResource FrameBorderBrush}" BorderThickness="1" CornerRadius="3">
+              <Border BorderBrush="#70FFFFFF" BorderThickness="1,1,0,0" CornerRadius="2" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ThumbFace" Property="Background" Value="#957040" />
+              </Trigger>
+              <Trigger Property="IsDragging" Value="True">
+                <Setter TargetName="ThumbFace" Property="Background" Value="#5A3C24" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="ScrollBar">
+      <Setter Property="Width" Value="14" />
+      <Setter Property="Height" Value="Auto" />
+      <Setter Property="Background" Value="{StaticResource ScrollTrackBrush}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Border Background="{TemplateBinding Background}" BorderBrush="#5D432A" BorderThickness="1">
+              <Track x:Name="PART_Track" Orientation="{TemplateBinding Orientation}" IsDirectionReversed="True">
+                <Track.DecreaseRepeatButton>
+                  <RepeatButton x:Name="DecreaseButton" Command="{x:Static ScrollBar.PageUpCommand}"
+                                Style="{StaticResource ScrollPageButtonStyle}" />
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                  <Thumb Style="{StaticResource ScrollThumbStyle}" />
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                  <RepeatButton x:Name="IncreaseButton" Command="{x:Static ScrollBar.PageDownCommand}"
+                                Style="{StaticResource ScrollPageButtonStyle}" />
+                </Track.IncreaseRepeatButton>
+              </Track>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="Height" Value="14" />
+                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                <Setter TargetName="DecreaseButton" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}" />
+                <Setter TargetName="IncreaseButton" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
     <Style x:Key="ReaderFrameStyle" TargetType="Border">
       <Setter Property="BorderBrush" Value="{StaticResource FrameBorderBrush}" />
@@ -36,6 +156,14 @@
       <Setter Property="CornerRadius" Value="2" />
       <Setter Property="Background" Value="{DynamicResource ParchmentBrush}" />
       <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+    <Style x:Key="InsetHighlightStyle" TargetType="Border">
+      <Setter Property="BorderBrush" Value="#C7A568" />
+      <Setter Property="BorderThickness" Value="1,1,0,0" />
+    </Style>
+    <Style x:Key="InsetShadowStyle" TargetType="Border">
+      <Setter Property="BorderBrush" Value="#120B08" />
+      <Setter Property="BorderThickness" Value="0,0,1,1" />
     </Style>
   </Application.Resources>
 </Application>

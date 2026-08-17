@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -36,6 +37,8 @@ public partial class MainWindow : Window
     private readonly List<HtmlDocumentEntry> _characters = [];
     private readonly List<SpellRecord> _spells = [];
     private readonly List<string> _spellLoadErrors = [];
+    private readonly Dictionary<string, int> _maximumAdndHeadingSizes =
+        new(StringComparer.OrdinalIgnoreCase);
     private UserSettingsStore.UserSettings _settings = new();
     private HtmlDocumentEntry? _selectedDocument;
     private OnlineResourceEntry? _selectedOnlineResource;
@@ -83,10 +86,13 @@ public partial class MainWindow : Window
 
         try
         {
-            ApplicationTitleText.FontFamily = new FontFamily(
+            var titleFamily = new FontFamily(
                 new Uri(fontFolder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar),
                 "./#Friz Quadrata");
-            ApplicationTitleText.FontWeight = FontWeights.Bold;
+            ApplicationTitlePrefixText.FontFamily = titleFamily;
+            ApplicationTitleSuffixText.FontFamily = titleFamily;
+            ApplicationTitlePrefixText.FontWeight = FontWeights.Bold;
+            ApplicationTitleSuffixText.FontWeight = FontWeights.Bold;
         }
         catch (ArgumentException)
         {
@@ -721,7 +727,7 @@ public partial class MainWindow : Window
         {
             html.Append("<base href=\"").Append(Encode(new Uri(helpTopic.PagePath).AbsoluteUri)).Append("\">");
         }
-        html.Append("<style>").Append(CreatePackagedFontCss());
+        html.Append("<style>").Append(CreatePackagedFontCss()).Append(CreateThemedScrollbarCss());
         html.Append("html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
         html.Append("body{margin:22px;color:#17212b;background-color:#f5e8c8;background-image:")
             .Append(CreateParchmentBackgroundImage())
@@ -949,6 +955,8 @@ public partial class MainWindow : Window
                 "font[size='+3'],font[size='+3'] *,font[size='6'],font[size='6'] *," +
                 "font[size='+4'],font[size='+4'] *,font[size='7'],font[size='7'] *{" +
                 "font-family:'Core Rules University Roman','University Roman Std','University Roman',serif!important;}" +
+                CreateMaximumAdndHeadingCss() +
+                CreateThemedScrollbarCss() +
                 "p.core-rules-body-paragraph{margin-top:0!important;margin-bottom:0!important;text-indent:1.5em!important;}" +
                 "p.core-rules-heading-paragraph{margin-top:1em!important;margin-bottom:0!important;text-indent:0!important;}" +
                 "span.core-rules-paragraph-indent{display:inline-block!important;width:1.5em!important;height:0!important;" +
@@ -1129,6 +1137,7 @@ public partial class MainWindow : Window
                   CreateRulesBoxCss() +
                   CreateResponsiveDocumentCss() +
                   CreateCoverPageCss() +
+                  CreateThemedScrollbarCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
         var characterPrintScript = CreateCharacterPrintScript();
@@ -1180,6 +1189,7 @@ public partial class MainWindow : Window
             var name = Path.GetFileNameWithoutExtension(path);
             var family = name.Contains("korinna", StringComparison.OrdinalIgnoreCase) ? "Core Rules Korinna" :
                 name.Contains("honda", StringComparison.OrdinalIgnoreCase) ? "Core Rules Honda" :
+                name.Contains("friz", StringComparison.OrdinalIgnoreCase) ? "Core Rules Friz Quadrata" :
                 name.Contains("university", StringComparison.OrdinalIgnoreCase) ? "Core Rules University Roman" :
                 name.Contains("antiqua", StringComparison.OrdinalIgnoreCase) ? "Core Rules Book Antiqua" : null;
             if (family is null) continue;
@@ -1208,7 +1218,9 @@ public partial class MainWindow : Window
                                     path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
         {
             var name = Path.GetFileNameWithoutExtension(path);
-            var family = name.Contains("university", StringComparison.OrdinalIgnoreCase)
+            var family = name.Contains("friz", StringComparison.OrdinalIgnoreCase)
+                ? "Core Rules Friz Quadrata"
+                : name.Contains("university", StringComparison.OrdinalIgnoreCase)
                 ? "Core Rules University Roman"
                 : name.Contains("antiqua", StringComparison.OrdinalIgnoreCase)
                     ? "Core Rules Book Antiqua"
@@ -1253,8 +1265,70 @@ public partial class MainWindow : Window
             ? "html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif !important;}" +
               $"{majorHeadings}{{font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif !important;font-weight:normal !important;}}"
             : "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif !important;}" +
-              $"{allAdndHeadings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
+              $"{allAdndHeadings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}" +
+              CreateMaximumAdndHeadingCss();
     }
+
+    private string CreateMaximumAdndHeadingCss()
+    {
+        if (_selectedDocument?.Collection != HtmlDocumentCollection.AdndSecondEdition) return string.Empty;
+
+        var maximumSize = GetMaximumAdndHeadingSize(_selectedDocument);
+        if (maximumSize is not (5 or 6)) return string.Empty;
+
+        return $"font[size='{maximumSize}'],font[size='{maximumSize}'] *{{" +
+               "font-family:'Core Rules Friz Quadrata','Friz Quadrata',serif!important;" +
+               "font-weight:bold!important;}";
+    }
+
+    private int GetMaximumAdndHeadingSize(HtmlDocumentEntry document)
+    {
+        var key = Path.GetFullPath(document.StartPage);
+        if (_maximumAdndHeadingSizes.TryGetValue(key, out var cached)) return cached;
+
+        var folder = Path.GetDirectoryName(key);
+        var maximum = 0;
+        if (folder is not null && Directory.Exists(folder))
+        {
+            try
+            {
+                foreach (var path in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+                             .Where(path => path.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                                            path.EndsWith(".html", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var html = File.ReadAllText(path);
+                    foreach (Match match in Regex.Matches(
+                                 html,
+                                 "<font\\b[^>]*\\bsize\\s*=\\s*[\\\"']?\\s*([56])(?=[\\\"'\\s>])",
+                                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                    {
+                        maximum = Math.Max(maximum, match.Groups[1].Value[0] - '0');
+                        if (maximum == 6) break;
+                    }
+
+                    if (maximum == 6) break;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                maximum = 0;
+            }
+        }
+
+        _maximumAdndHeadingSizes[key] = maximum;
+        return maximum;
+    }
+
+    private static string CreateThemedScrollbarCss() =>
+        "html,body{scrollbar-face-color:#765531;scrollbar-track-color:#1d130e;" +
+        "scrollbar-arrow-color:#fff2d4;scrollbar-highlight-color:#c7a568;" +
+        "scrollbar-shadow-color:#120b08;scrollbar-3dlight-color:#9b7842;" +
+        "scrollbar-darkshadow-color:#120b08;}" +
+        "::-webkit-scrollbar{width:14px;height:14px;background:#1d130e;}" +
+        "::-webkit-scrollbar-track{background:#1d130e;border:1px solid #5d432a;}" +
+        "::-webkit-scrollbar-thumb{background:#765531;border:1px solid #9b7842;border-radius:4px;}" +
+        "::-webkit-scrollbar-thumb:hover{background:#957040;}" +
+        "::-webkit-scrollbar-corner{background:#1d130e;}";
 
     private string CreateDocumentSurfaceCss()
     {
