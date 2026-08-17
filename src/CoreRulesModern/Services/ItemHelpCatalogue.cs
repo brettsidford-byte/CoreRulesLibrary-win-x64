@@ -86,9 +86,15 @@ public sealed class ItemHelpCatalogue
         var cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "CoreRulesLibrary", "HelpCache", stamp);
         Directory.CreateDirectory(cache);
+        var cachedHelpPath = Path.Combine(cache, Path.GetFileName(helpPath));
         var rtfPath = Path.Combine(cache, Path.GetFileNameWithoutExtension(helpPath) + ".rtf");
         if (!File.Exists(rtfPath) || new FileInfo(rtfPath).Length < 1000)
         {
+            // The Windows HelpDeco build derives its output location from the input
+            // path rather than reliably honouring Process.WorkingDirectory. Decode a
+            // private cache copy so it never attempts to write into the Core Rules
+            // installation (which is commonly read-only under Program Files).
+            File.Copy(helpPath, cachedHelpPath, true);
             var start = new ProcessStartInfo
             {
                 FileName = converter,
@@ -96,7 +102,7 @@ public sealed class ItemHelpCatalogue
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            start.ArgumentList.Add(helpPath);
+            start.ArgumentList.Add(cachedHelpPath);
             start.ArgumentList.Add("-y");
             start.ArgumentList.Add("-g");
             using var process = Process.Start(start);
