@@ -23,10 +23,12 @@
           <Button Content="Settings…" Click="Settings_Click" FontSize="11"
                   Height="22" MinHeight="0" Padding="7,0" Margin="2,0" />
         </StackPanel>
-        <TextBlock x:Name="ApplicationTitleText" Text="AD&amp;D Core Rules Library"
-                   Foreground="#E65749" FontSize="18"
-                   FontFamily="Friz Quadrata" FontWeight="Bold"
-                   VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock x:Name="ApplicationTitlePrefixText" Text="AD&amp;" Foreground="#E65749" FontSize="18"
+                     FontFamily="Friz Quadrata" FontWeight="Bold" />
+          <TextBlock x:Name="ApplicationTitleSuffixText" Text="D Core Rules Library" Margin="-3,0,0,0"
+                     Foreground="#E65749" FontSize="18" FontFamily="Friz Quadrata" FontWeight="Bold" />
+        </StackPanel>
       </DockPanel>
     </Border>
 
@@ -41,6 +43,8 @@
 
       <Border Grid.Column="0" Margin="10,10,5,10" Padding="12"
               Style="{StaticResource ReaderFrameStyle}">
+       <Border Style="{StaticResource InsetHighlightStyle}">
+        <Border Style="{StaticResource InsetShadowStyle}">
         <DockPanel>
           <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="4,4,4,12" Padding="10,7"
                    ToolTip="Filter books, characters and spells" TextChanged="SearchBox_TextChanged" />
@@ -104,6 +108,8 @@
             <TreeViewItem x:Name="OnlineResourcesRoot" Header="Online Resources" IsExpanded="True" />
           </TreeView>
         </DockPanel>
+        </Border>
+       </Border>
       </Border>
 
       <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"
@@ -111,6 +117,8 @@
 
       <Border x:Name="BookContentsPanel" Grid.Column="2" Visibility="Collapsed"
               Margin="5,10" Padding="4" Style="{StaticResource ReaderFrameStyle}">
+       <Border Style="{StaticResource InsetHighlightStyle}">
+        <Border Style="{StaticResource InsetShadowStyle}">
         <Grid Background="{DynamicResource ParchmentBrush}">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -162,6 +170,8 @@
             <wv2:WebView2 x:Name="SpellContextBrowser" Visibility="Collapsed" />
           </Grid>
         </Grid>
+        </Border>
+       </Border>
       </Border>
 
       <GridSplitter x:Name="BookContentsSplitter" Grid.Column="3" Width="5"
@@ -170,6 +180,8 @@
 
       <Border Grid.Column="4" Margin="5,10,10,10" Padding="4"
               Style="{StaticResource ReaderFrameStyle}" Background="{DynamicResource WoodBrush}">
+      <Border Style="{StaticResource InsetHighlightStyle}">
+       <Border Style="{StaticResource InsetShadowStyle}">
        <Grid Background="{DynamicResource WoodBrush}">
         <StackPanel x:Name="WelcomePanel" Margin="30" MaxWidth="760" HorizontalAlignment="Left">
           <TextBlock Text="Your AD&amp;D library" FontSize="34" FontWeight="SemiBold" />
@@ -207,7 +219,8 @@
                   <Setter Property="Margin" Value="2,0" />
                 </Style>
               </WrapPanel.Resources>
-              <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FFF3D4" />
+              <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FFF3D4"
+                         FontFamily="ITC Korinna" />
               <ComboBox x:Name="ScaleBox" Width="72" Height="22" FontSize="11"
                         SelectionChanged="ScaleBox_SelectionChanged" Margin="0,0,8,0">
                 <ComboBoxItem Content="100%" Tag="100" />
@@ -244,7 +257,8 @@
                   <Setter Property="Margin" Value="2,0" />
                 </Style>
               </WrapPanel.Resources>
-              <TextBlock Text="Find" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="#FFF3D4" />
+              <TextBlock Text="Find" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="#FFF3D4"
+                         FontFamily="ITC Korinna" />
               <TextBox x:Name="FindTextBox" Width="160" Height="22" FontSize="12" Margin="2,0"
                        Padding="4,1" KeyDown="FindTextBox_KeyDown" TextChanged="FindTextBox_TextChanged"
                        ToolTip="Find text on the current page (Ctrl+F)" />
@@ -281,7 +295,8 @@
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,8">
               <Button x:Name="SpellBookmarkButton" Content="Bookmark spell" Click="SpellBookmark_Click"
                       ToolTip="Add or remove this spell from bookmarks" />
-              <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FFF3D4" />
+              <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FFF3D4"
+                         FontFamily="ITC Korinna" />
               <ComboBox x:Name="SpellScaleBox" Width="82" SelectionChanged="ScaleBox_SelectionChanged" Margin="0,0,12,0">
                 <ComboBoxItem Content="100%" Tag="100" />
                 <ComboBoxItem Content="125%" Tag="125" />
@@ -335,6 +350,8 @@
           </Border>
         </Grid>
        </Grid>
+       </Border>
+      </Border>
       </Border>
       </Grid>
 
