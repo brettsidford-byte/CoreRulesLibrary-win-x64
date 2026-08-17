@@ -58,8 +58,18 @@ public sealed class UserSettingsStore
             BookContentsWidth = settings.BookContentsWidth is >= 220 and <= 1000
                 ? settings.BookContentsWidth
                 : 300,
+            CharacterPrintPaperSize = settings.CharacterPrintPaperSize is "A4" or "Letter"
+                ? settings.CharacterPrintPaperSize
+                : "A4",
+            CharacterPrintMarginMm = settings.CharacterPrintMarginMm is >= 5 and <= 30
+                ? settings.CharacterPrintMarginMm
+                : 12,
+            CharacterPrintSectionsPerPage = settings.CharacterPrintSectionsPerPage is >= 0 and <= 4
+                ? settings.CharacterPrintSectionsPerPage
+                : 0,
             Bookmarks = settings.Bookmarks ?? [],
-            RecentPages = settings.RecentPages ?? []
+            RecentPages = settings.RecentPages ?? [],
+            CharacterPrintBreakAfterSections = settings.CharacterPrintBreakAfterSections ?? []
         };
     }
 
@@ -98,5 +108,12 @@ public sealed class UserSettingsStore
         string SpellSourceFilter = "All",
         bool BookContentsVisible = true,
         double BookReferenceCoverHeight = 240,
-        double BookContentsWidth = 300);
+        double BookContentsWidth = 300,
+        string CharacterPrintPaperSize = "A4",
+        bool CharacterPrintLandscape = false,
+        int CharacterPrintMarginMm = 12,
+        int CharacterPrintSectionsPerPage = 0,
+        bool CharacterPrintKeepSectionsTogether = true,
+        bool CharacterPrintBackgrounds = true,
+        IReadOnlyList<string>? CharacterPrintBreakAfterSections = null);
 }

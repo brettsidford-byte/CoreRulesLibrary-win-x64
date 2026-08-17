@@ -570,6 +570,9 @@ public partial class MainWindow : Window
         DocumentPanel.Visibility = Visibility.Visible;
         DocumentTitleText.Text = document.Title;
         DocumentPathText.Text = targetPage;
+        CharacterPrintButton.Visibility = document.Kind == HtmlDocumentKind.Character
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         UpdateBookmarkButton(targetPage);
         try
         {
@@ -1467,6 +1470,70 @@ public partial class MainWindow : Window
                "body>table>tbody>tr>td>table[border='1']{background:#fff!important;box-shadow:none!important;}" +
                "body>p:last-of-type{break-before:avoid-page;}" +
                "body::-webkit-scrollbar,html::-webkit-scrollbar{display:none!important;}}";
+    }
+
+    private async void PrintCharacterSheet_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedDocument?.Kind != HtmlDocumentKind.Character ||
+            DocumentBrowser.CoreWebView2 is null) return;
+
+        try
+        {
+            var headingsJson = await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(
+                "Array.from(document.querySelectorAll('body>table')).map((section,index)=>" +
+                "section.querySelector(\"table[border='1'] font:first-child strong\")?.textContent?.trim()||`Section ${index+1}`)");
+            var headings = JsonSerializer.Deserialize<string[]>(headingsJson) ?? [];
+            var initial = new CharacterPrintOptions(
+                _settings.CharacterPrintPaperSize,
+                _settings.CharacterPrintLandscape,
+                _settings.CharacterPrintMarginMm,
+                _settings.CharacterPrintSectionsPerPage,
+                _settings.CharacterPrintKeepSectionsTogether,
+                _settings.CharacterPrintBackgrounds,
+                _settings.CharacterPrintBreakAfterSections ?? []);
+            var dialog = new CharacterPrintOptionsWindow(headings, initial) { Owner = this };
+            if (dialog.ShowDialog() != true || dialog.Options is null) return;
+
+            var options = dialog.Options;
+            _settings = _settings with
+            {
+                CharacterPrintPaperSize = options.PaperSize,
+                CharacterPrintLandscape = options.Landscape,
+                CharacterPrintMarginMm = options.MarginMm,
+                CharacterPrintSectionsPerPage = options.SectionsPerPage,
+                CharacterPrintKeepSectionsTogether = options.KeepSectionsTogether,
+                CharacterPrintBackgrounds = options.PrintBackgrounds,
+                CharacterPrintBreakAfterSections = options.BreakAfterSections.ToArray()
+            };
+            SaveSettings();
+
+            var encoded = JsonSerializer.Serialize(options);
+            await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(
+                "(()=>{const options=" + encoded + ";" +
+                "document.getElementById('core-rules-print-options')?.remove();" +
+                "const style=document.createElement('style');style.id='core-rules-print-options';" +
+                "const orientation=options.Landscape?'landscape':'portrait';" +
+                "let css=`@media print{@page{size:${options.PaperSize} ${orientation};margin:${options.MarginMm}mm;}" +
+                "body>table.cr-user-print-break{break-before:page!important;page-break-before:always!important;}`;" +
+                "css+=options.KeepSectionsTogether?'body>table{break-inside:avoid-page!important;page-break-inside:avoid!important;}':'body>table{break-inside:auto!important;page-break-inside:auto!important;}';" +
+                "if(!options.PrintBackgrounds)css+='html,body,body *{background-image:none!important;box-shadow:none!important;}';" +
+                "style.textContent=css+'}';(document.head||document.documentElement).appendChild(style);" +
+                "const sections=Array.from(document.querySelectorAll('body>table'));" +
+                "sections.forEach(s=>s.classList.remove('cr-print-break','cr-user-print-break'));" +
+                "const automaticBreaks=new Set(['Combat','Weapons','Racial Abilities','Spells','Inventory','Spells Memorized','Spells Known','Character History']);" +
+                "if(options.SectionsPerPage===0&&!options.BreakAfterSections.length){sections.forEach((s,i)=>{const heading=s.querySelector(\"table[border='1'] font:first-child strong\")?.textContent?.trim()||`Section ${i+1}`;if(automaticBreaks.has(heading))s.classList.add('cr-print-break');});}" +
+                "if(options.SectionsPerPage>0){sections.forEach((s,i)=>{if(i>0&&i%options.SectionsPerPage===0)s.classList.add('cr-user-print-break');});}" +
+                "for(let i=0;i<sections.length-1;i++){const heading=sections[i].querySelector(\"table[border='1'] font:first-child strong\")?.textContent?.trim()||`Section ${i+1}`;" +
+                "if(options.BreakAfterSections.includes(heading))sections[i+1].classList.add('cr-user-print-break');}" +
+                "})()");
+
+            DocumentBrowser.CoreWebView2.ShowPrintUI(CoreWebView2PrintDialogKind.Browser);
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(this, $"The character-sheet print preview could not be opened.\n\n{exception.Message}",
+                "Print character sheet", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private static string CreateCharacterSheetBackground()

@@ -104,12 +104,31 @@ public static partial class BookContentsResolver
 
         var linkedPages = ResolveLinkedPages(startPage, folder);
         var contentsPage = linkedPages.FirstOrDefault(IsContentsPage) ??
-                           linkedPages.Skip(1).FirstOrDefault() ??
+                           FindDomainsContentsAfterDedication(startPage, folder) ??
                            linkedPages.FirstOrDefault() ??
                            startPage;
         return new BookContentsLocation(
             contentsPage,
             CoverPagePath: FindManualCover(folder) ?? startPage);
+    }
+
+    private static string? FindDomainsContentsAfterDedication(string startPage, string folder)
+    {
+        var pages = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .Where(path => path.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                           path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+            .Select(Path.GetFullPath)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var startIndex = Array.FindIndex(pages,
+            page => page.Equals(startPage, StringComparison.OrdinalIgnoreCase));
+        if (startIndex < 0) return null;
+
+        // Domains of Dread begins with its landing page and dedication before
+        // the actual table of contents. Prefer a positively identified page,
+        // then use that known third-page layout as a compatibility fallback.
+        var identified = pages.Skip(startIndex + 1).Take(4).FirstOrDefault(IsContentsPage);
+        return identified ?? (startIndex + 2 < pages.Length ? pages[startIndex + 2] : null);
     }
 
     private static bool IsDomainsOfDread(string startPage)

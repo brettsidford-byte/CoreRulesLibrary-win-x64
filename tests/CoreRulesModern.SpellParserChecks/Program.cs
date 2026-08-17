@@ -193,6 +193,19 @@ static void CheckBookContentsResolver(string temporaryFolder)
     Require(domains.PagePath == Path.GetFullPath(domainsContents),
         "Domains of Dread did not skip credits and select its contents page.");
 
+    var domainsSequentialFolder = Path.Combine(temporaryFolder, "Domains of Dread sequential");
+    Directory.CreateDirectory(domainsSequentialFolder);
+    var domainsLanding = Path.Combine(domainsSequentialFolder, "dod00.htm");
+    var domainsDedication = Path.Combine(domainsSequentialFolder, "dod01.htm");
+    var domainsSequentialContents = Path.Combine(domainsSequentialFolder, "dod02.htm");
+    File.WriteAllText(domainsLanding, "<title>Domains of Dread</title><a href='dod01.htm'>Next</a>");
+    File.WriteAllText(domainsDedication, "<title>Dedication</title>");
+    File.WriteAllText(domainsSequentialContents, "<title>Table of Contents</title>");
+    var sequentialDomains = BookContentsResolver.Resolve(
+        domainsLanding, domainsLanding, HtmlDocumentCollection.Ravenloft);
+    Require(sequentialDomains.PagePath == Path.GetFullPath(domainsSequentialContents),
+        "Domains of Dread selected its dedication instead of the following contents page.");
+
     var folder = Path.Combine(temporaryFolder, "Van_Richten_Guides_V2");
     Directory.CreateDirectory(folder);
     var startPage = Path.Combine(folder, "index.htm");

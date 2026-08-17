@@ -246,6 +246,9 @@
               <Button x:Name="BookmarkPageButton" Content="Bookmark page" Click="BookmarkPage_Click"
                       ToolTip="Add or remove the current page from bookmarks" />
               <Button Content="Open in browser…" Click="OpenDocument_Click" />
+              <Button x:Name="CharacterPrintButton" Content="Print character sheet…"
+                      Click="PrintCharacterSheet_Click" Visibility="Collapsed"
+                      ToolTip="Choose the character-sheet layout and open print preview" />
             </WrapPanel>
             <WrapPanel Grid.Row="1" Margin="4,0,4,4" VerticalAlignment="Center">
               <WrapPanel.Resources>
