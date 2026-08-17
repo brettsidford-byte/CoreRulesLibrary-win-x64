@@ -31,7 +31,11 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force native-tools | Out-Null
-          msbuild third_party/helpdeco/vs2022/helpdeco.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:OutDir="$pwd\native-tools\"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+          if (-not $msbuild) { throw "Visual Studio MSBuild was not found." }
+          & $msbuild third_party/helpdeco/vs2022/helpdeco.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:OutDir="$pwd\native-tools\"
+          if ($LASTEXITCODE -ne 0) { throw "HelpDeco build failed with exit code $LASTEXITCODE." }
           if (-not (Test-Path native-tools/helpdeco.exe)) { throw "helpdeco.exe was not built." }
 
       - name: Set up .NET
