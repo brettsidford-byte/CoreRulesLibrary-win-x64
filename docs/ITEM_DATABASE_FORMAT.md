@@ -24,6 +24,8 @@ The viewer decodes user-facing costs, XP, weight, capacity, armour class and wea
 statistics. Internal character-builder flags are deliberately omitted. Damage type
 codes are expanded to Slashing, Bludgeoning and Piercing, including combined codes
 such as `P/S`. Imported records with an embedded custom-help string display that
-description. For built-in records, the viewer converts the selected installation's
-own `Help/Equip.hlp` into a local cache and displays the matching topic inside the
-item panel; the application does not contain or distribute the Core Rules help prose.
+description. For built-in records, the viewer routes ordinary weapons, armour and
+equipment through `Help/Equip.hlp`, and magical items and treasure through
+`Help/Magic.hlp`, with the other catalogue as a compatibility fallback. Converted
+topics are kept in a local cache and displayed inside the item panel; the application
+does not contain or distribute the Core Rules help prose.

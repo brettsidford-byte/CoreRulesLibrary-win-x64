@@ -22,43 +22,54 @@ public sealed class ItemHelpCatalogue
     {
         LastError = null;
         if (!string.IsNullOrWhiteSpace(item.CustomDescription)) return item.CustomDescription;
-        var helpPath = FindEquipmentHelpPath(installationRoot);
-        if (helpPath is null)
+        var helpPaths = FindHelpPaths(installationRoot, item.Category);
+        if (helpPaths.Count == 0)
         {
-            LastError = "Help\\EQUIP.HLP was not found beneath the selected Core Rules folder.";
+            LastError = "Neither Help\\EQUIP.HLP nor Help\\MAGIC.HLP was found beneath the selected Core Rules folder.";
             return null;
         }
 
-        if (!_loads.TryGetValue(helpPath, out var load))
+        var errors = new List<string>();
+        foreach (var helpPath in helpPaths)
         {
-            load = LoadAsync(helpPath);
-            _loads[helpPath] = load;
-        }
+            if (!_loads.TryGetValue(helpPath, out var load))
+            {
+                load = LoadAsync(helpPath);
+                _loads[helpPath] = load;
+            }
 
-        IReadOnlyDictionary<string, string> topics;
-        try
-        {
-            topics = await load;
+            IReadOnlyDictionary<string, string> topics;
+            try
+            {
+                topics = await load;
+            }
+            catch (Exception exception)
+            {
+                _loads.Remove(helpPath);
+                errors.Add($"{Path.GetFileName(helpPath)}: {exception.Message}");
+                continue;
+            }
+            foreach (var candidate in TopicCandidates(item.Name))
+                if (topics.TryGetValue(Normalise(candidate), out var description)) return description;
+            if (!string.IsNullOrWhiteSpace(LastError)) errors.Add(LastError);
         }
-        catch (Exception exception)
-        {
-            _loads.Remove(helpPath);
-            LastError = $"The WinHelp decoder failed: {exception.Message}";
-            return null;
-        }
-        foreach (var candidate in TopicCandidates(item.Name))
-            if (topics.TryGetValue(Normalise(candidate), out var description)) return description;
-        LastError = $"The help file was decoded, but no topic matching “{item.Name}” was found.";
+        LastError = errors.Count > 0
+            ? string.Join(" ", errors.Distinct())
+            : $"The appropriate help catalogues were decoded, but no linked topic matching “{item.Name}” was found.";
         return null;
     }
 
-    private static string? FindEquipmentHelpPath(string? installationRoot)
+    private static IReadOnlyList<string> FindHelpPaths(string? installationRoot, ItemCategory category)
     {
-        if (string.IsNullOrWhiteSpace(installationRoot)) return null;
+        if (string.IsNullOrWhiteSpace(installationRoot)) return [];
         var folder = Path.Combine(installationRoot, "Help");
-        return Directory.Exists(folder)
-            ? Directory.EnumerateFiles(folder, "Equip.hlp", SearchOption.TopDirectoryOnly).FirstOrDefault()
-            : null;
+        if (!Directory.Exists(folder)) return [];
+        var files = Directory.EnumerateFiles(folder, "*.hlp", SearchOption.TopDirectoryOnly)
+            .ToDictionary(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase);
+        var preferred = category is ItemCategory.MagicalItem or ItemCategory.Treasure
+            ? new[] { "MAGIC.HLP", "EQUIP.HLP" }
+            : new[] { "EQUIP.HLP", "MAGIC.HLP" };
+        return preferred.Where(files.ContainsKey).Select(name => files[name]).ToArray();
     }
 
     private async Task<IReadOnlyDictionary<string, string>> LoadAsync(string helpPath)
@@ -70,11 +81,12 @@ public sealed class ItemHelpCatalogue
             return new Dictionary<string, string>();
         }
 
-        var stamp = File.GetLastWriteTimeUtc(helpPath).Ticks.ToString("x", CultureInfo.InvariantCulture);
+        var stamp = Path.GetFileNameWithoutExtension(helpPath) + "-" +
+            File.GetLastWriteTimeUtc(helpPath).Ticks.ToString("x", CultureInfo.InvariantCulture);
         var cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "CoreRulesLibrary", "HelpCache", stamp);
         Directory.CreateDirectory(cache);
-        var rtfPath = Path.Combine(cache, "EQUIP.rtf");
+        var rtfPath = Path.Combine(cache, Path.GetFileNameWithoutExtension(helpPath) + ".rtf");
         if (!File.Exists(rtfPath) || new FileInfo(rtfPath).Length < 1000)
         {
             var start = new ProcessStartInfo
@@ -128,12 +140,17 @@ public sealed class ItemHelpCatalogue
 
             // Context tokens are stored in footnote groups, which the converter
             // deliberately suppresses, leaving the visible heading first.
-            const int headingIndex = 0;
-            if (headingIndex >= lines.Length - 1) continue;
-            var heading = lines[headingIndex];
-            var body = string.Join(Environment.NewLine + Environment.NewLine, lines.Skip(headingIndex + 1)).Trim();
-            if (heading.Length is > 0 and <= 160 && body.Length > 0)
-                topics.TryAdd(Normalise(heading), body);
+            // Register every plausible short line as an alias for the remainder of
+            // its topic. Different HelpDeco builds can retain an extra browse label
+            // before the visible heading; the exact item title still resolves.
+            for (var headingIndex = 0; headingIndex < lines.Length - 1; headingIndex++)
+            {
+                var heading = lines[headingIndex];
+                if (heading.Length is 0 or > 160) continue;
+                var body = string.Join(Environment.NewLine + Environment.NewLine,
+                    lines.Skip(headingIndex + 1)).Trim();
+                if (body.Length > 0) topics.TryAdd(Normalise(heading), body);
+            }
         }
         return topics;
     }
@@ -199,6 +216,9 @@ public sealed class ItemHelpCatalogue
         if (baseName.StartsWith("Potion of ", StringComparison.OrdinalIgnoreCase)) yield return baseName[10..];
         if (baseName.StartsWith("Full armor, ", StringComparison.OrdinalIgnoreCase)) yield return baseName[12..];
         if (baseName.StartsWith("Full armour, ", StringComparison.OrdinalIgnoreCase)) yield return baseName[13..];
+        var comma = baseName.IndexOf(',');
+        if (comma > 0 && comma < baseName.Length - 1)
+            yield return $"{baseName[(comma + 1)..].Trim()} {baseName[..comma].Trim()}";
     }
 
     private static string Normalise(string value) => Regex.Replace(value, @"[^a-z0-9]+", " ",
