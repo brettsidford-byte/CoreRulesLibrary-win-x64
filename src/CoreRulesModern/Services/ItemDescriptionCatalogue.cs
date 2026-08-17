@@ -11,6 +11,7 @@ namespace CoreRulesModern.Services;
 public sealed class ItemDescriptionCatalogue
 {
     private readonly Dictionary<string, string> _plainText = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string?> _descriptions = new(StringComparer.OrdinalIgnoreCase);
 
     public string? Find(string? installationRoot, ItemRecord item)
     {
@@ -19,18 +20,55 @@ public sealed class ItemDescriptionCatalogue
         var books = Path.Combine(installationRoot, "Books");
         if (!Directory.Exists(books)) return null;
 
-        var headings = HeadingCandidates(item.Name);
+        var cacheKey = $"{Path.GetFullPath(books)}|{item.Name}";
+        if (_descriptions.TryGetValue(cacheKey, out var cached)) return cached;
+
+        var headings = HeadingCandidates(item.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         foreach (var path in Directory.EnumerateFiles(books, "*.rtf", SearchOption.TopDirectoryOnly)
-                     .OrderBy(path => Path.GetFileName(path).Equals("DMGBK.RTF", StringComparison.OrdinalIgnoreCase) ? 0 : 1))
+                     .OrderBy(path => BookPriority(item.Category, Path.GetFileName(path))))
         {
+            // Converting RTF into a WPF FlowDocument is comparatively expensive.
+            // Most books cannot contain this item, so reject those using their raw
+            // ASCII-compatible RTF text before touching RichTextBox.
+            if (!MayContainHeading(path, headings)) continue;
             var text = ReadPlainText(path);
             foreach (var heading in headings)
             {
                 var description = ExtractSection(text, heading);
-                if (!string.IsNullOrWhiteSpace(description)) return description;
+                if (!string.IsNullOrWhiteSpace(description))
+                {
+                    _descriptions[cacheKey] = description;
+                    return description;
+                }
             }
         }
+        _descriptions[cacheKey] = null;
         return null;
+    }
+
+    private static bool MayContainHeading(string path, IReadOnlyList<string> headings)
+    {
+        try
+        {
+            var rtf = File.ReadAllText(path);
+            return headings.Any(heading => rtf.Contains(heading, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
+    private static int BookPriority(ItemCategory category, string fileName)
+    {
+        var preferred = category switch
+        {
+            ItemCategory.MagicalItem or ItemCategory.Treasure => new[] { "DMGBK.RTF", "TomeBk.rtf" },
+            ItemCategory.Weapon or ItemCategory.Armour => new[] { "PHBBK.RTF", "POSMBk.rtf", "ArmsBk.rtf" },
+            _ => new[] { "PHBBK.RTF", "DMGBK.RTF" }
+        };
+        var index = Array.FindIndex(preferred, name => name.Equals(fileName, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 ? index : preferred.Length + 1;
     }
 
     private string ReadPlainText(string path)
