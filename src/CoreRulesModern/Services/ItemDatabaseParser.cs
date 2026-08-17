@@ -95,7 +95,9 @@ public sealed class ItemDatabaseParser
 
     private static void ResolveInheritedCosts(List<ItemRecord> items)
     {
-        var byName = items.ToDictionary(item => item.Name, StringComparer.OrdinalIgnoreCase);
+        var byName = items
+            .GroupBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < items.Count; index++)
         {
             var item = items[index];

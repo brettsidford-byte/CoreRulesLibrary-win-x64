@@ -240,6 +240,11 @@ public partial class MainWindow : Window
         {
             _itemLoadErrors.Add($"{Path.GetFileName(path)}: {exception.Message}");
         }
+        catch (Exception exception)
+        {
+            CrashLog.TryWrite(exception, $"loading item database {path}");
+            _itemLoadErrors.Add($"{Path.GetFileName(path)}: unexpected item-decoder error; see {CrashLog.LogPath}");
+        }
     }
 
     private void LoadSpellDatabase(string path, SpellDatabaseKind kind)
