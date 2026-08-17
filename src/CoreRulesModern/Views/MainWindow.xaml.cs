@@ -727,7 +727,7 @@ public partial class MainWindow : Window
             var description = await _itemHelp.FindAsync(_libraryRoot, item);
             await ItemBrowser.EnsureCoreWebView2Async();
             HardenWebView(ItemBrowser.CoreWebView2);
-            ItemBrowser.NavigateToString(CreateItemHtml(item, description));
+            ItemBrowser.NavigateToString(CreateItemHtml(item, description, _itemHelp.LastError));
         }
         catch (Exception exception)
         {
@@ -737,7 +737,7 @@ public partial class MainWindow : Window
         FooterStatus.Text = $"Displaying {item.Name} · read-only";
     }
 
-    private string CreateItemHtml(ItemRecord item, string? description)
+    private string CreateItemHtml(ItemRecord item, string? description, string? descriptionError)
     {
         var html = new StringBuilder();
         html.Append("<!doctype html><html><head><style>").Append(CreatePackagedFontCss());
@@ -760,7 +760,8 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(description))
             html.Append("<h2>Description</h2><div class=\"description\">").Append(Encode(description)).Append("</div>");
         else if (item.HelpTopicId > 0)
-            html.Append("<p class=\"muted\">The linked description could not be decoded from Help\\EQUIP.HLP.</p>");
+            html.Append("<p class=\"muted\">").Append(Encode(descriptionError ??
+                "The linked description could not be decoded from Help\\EQUIP.HLP.")).Append("</p>");
         else
             html.Append("<p class=\"muted\">No description reference was found in this item record.</p>");
         html.Append("<p class=\"muted\">Read-only Core Rules item record.</p></body></html>");

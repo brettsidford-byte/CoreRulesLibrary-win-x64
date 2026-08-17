@@ -16,11 +16,18 @@ public sealed class ItemHelpCatalogue
     private readonly Dictionary<string, Task<IReadOnlyDictionary<string, string>>> _loads =
         new(StringComparer.OrdinalIgnoreCase);
 
+    public string? LastError { get; private set; }
+
     public async Task<string?> FindAsync(string? installationRoot, ItemRecord item)
     {
+        LastError = null;
         if (!string.IsNullOrWhiteSpace(item.CustomDescription)) return item.CustomDescription;
         var helpPath = FindEquipmentHelpPath(installationRoot);
-        if (helpPath is null) return null;
+        if (helpPath is null)
+        {
+            LastError = "Help\\EQUIP.HLP was not found beneath the selected Core Rules folder.";
+            return null;
+        }
 
         if (!_loads.TryGetValue(helpPath, out var load))
         {
@@ -28,9 +35,20 @@ public sealed class ItemHelpCatalogue
             _loads[helpPath] = load;
         }
 
-        var topics = await load;
+        IReadOnlyDictionary<string, string> topics;
+        try
+        {
+            topics = await load;
+        }
+        catch (Exception exception)
+        {
+            _loads.Remove(helpPath);
+            LastError = $"The WinHelp decoder failed: {exception.Message}";
+            return null;
+        }
         foreach (var candidate in TopicCandidates(item.Name))
             if (topics.TryGetValue(Normalise(candidate), out var description)) return description;
+        LastError = $"The help file was decoded, but no topic matching “{item.Name}” was found.";
         return null;
     }
 
@@ -43,38 +61,57 @@ public sealed class ItemHelpCatalogue
             : null;
     }
 
-    private static async Task<IReadOnlyDictionary<string, string>> LoadAsync(string helpPath)
+    private async Task<IReadOnlyDictionary<string, string>> LoadAsync(string helpPath)
     {
         var converter = Path.Combine(AppContext.BaseDirectory, "Tools", "helpdeco.exe");
-        if (!File.Exists(converter)) return new Dictionary<string, string>();
+        if (!File.Exists(converter))
+        {
+            LastError = $"The packaged WinHelp decoder is missing: {converter}";
+            return new Dictionary<string, string>();
+        }
 
         var stamp = File.GetLastWriteTimeUtc(helpPath).Ticks.ToString("x", CultureInfo.InvariantCulture);
         var cache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "CoreRulesLibrary", "HelpCache", stamp);
         Directory.CreateDirectory(cache);
         var rtfPath = Path.Combine(cache, "EQUIP.rtf");
-        if (!File.Exists(rtfPath))
+        if (!File.Exists(rtfPath) || new FileInfo(rtfPath).Length < 1000)
         {
             var start = new ProcessStartInfo
             {
                 FileName = converter,
                 WorkingDirectory = cache,
                 UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
+                CreateNoWindow = true
             };
             start.ArgumentList.Add(helpPath);
             start.ArgumentList.Add("-y");
             start.ArgumentList.Add("-g");
             using var process = Process.Start(start);
-            if (process is null) return new Dictionary<string, string>();
+            if (process is null)
+            {
+                LastError = "Windows could not start the packaged WinHelp decoder.";
+                return new Dictionary<string, string>();
+            }
             await process.WaitForExitAsync();
-            if (!File.Exists(rtfPath)) return new Dictionary<string, string>();
+            if (process.ExitCode != 0)
+            {
+                LastError = $"The WinHelp decoder exited with code {process.ExitCode}.";
+                return new Dictionary<string, string>();
+            }
+            rtfPath = Directory.EnumerateFiles(cache, "*.rtf", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault() ?? rtfPath;
+            if (!File.Exists(rtfPath))
+            {
+                LastError = $"The WinHelp decoder did not create an RTF catalogue in {cache}.";
+                return new Dictionary<string, string>();
+            }
         }
 
         var rtf = await File.ReadAllTextAsync(rtfPath, Encoding.Latin1);
-        return ParseTopics(rtf);
+        var topics = ParseTopics(rtf);
+        if (topics.Count == 0) LastError = "The converted equipment help catalogue contained no readable topics.";
+        return topics;
     }
 
     private static IReadOnlyDictionary<string, string> ParseTopics(string rtf)
