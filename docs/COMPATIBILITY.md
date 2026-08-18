@@ -20,6 +20,11 @@ start-page names. Nested extracted website folders are searched recursively; whe
 than one start page exists, the nearest one to the book folder is used. Supporting
 images, stylesheets and chapter pages may use any layout referenced by the book's HTML.
 
+For a Van Richten collection, `van_richtens_cover.png` is used while the collection
+landing page is active. Individual guide pages use `vr01_cover.png` through
+`vr09_cover.png`, matching the `vr01_` through `vr09_` HTML prefixes. If a supplied
+PNG is absent, the viewer falls back to the guide's existing `_00` HTML cover page.
+
 ## Safety
 
 The viewer does not parse or modify `Chars/*.dat`, `index.chr`, databases, HTML files or help resources. It stores only the selected folder paths and display scale in the user's local application settings.

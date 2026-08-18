@@ -206,26 +206,51 @@ static void CheckBookContentsResolver(string temporaryFolder)
     Require(sequentialDomains.PagePath == Path.GetFullPath(domainsSequentialContents),
         "Domains of Dread selected its dedication instead of the following contents page.");
 
+    var domainsActualFolder = Path.Combine(temporaryFolder, "Domains of Dread actual");
+    Directory.CreateDirectory(domainsActualFolder);
+    var domainsActualStart = Path.Combine(domainsActualFolder, "index.htm");
+    var domainsActualCredits = Path.Combine(domainsActualFolder, "dod00010.htm");
+    var domainsContentsOne = Path.Combine(domainsActualFolder, "dod00000.htm");
+    var domainsContentsTwo = Path.Combine(domainsActualFolder, "dod00001.htm");
+    var domainsContentsThree = Path.Combine(domainsActualFolder, "dod00002.htm");
+    File.WriteAllText(domainsActualStart, "<title>Domains of Dread</title><a href='dod00010.htm'>Enter</a>");
+    File.WriteAllText(domainsActualCredits, "<title>Domains of Dread - Credits</title>");
+    File.WriteAllText(domainsContentsOne, "<title>Domains of Dread - Table of Contents</title>");
+    File.WriteAllText(domainsContentsTwo, "<title>Domains of Dread - Table of Contents</title>");
+    File.WriteAllText(domainsContentsThree, "<title>Domains of Dread - Table of Contents</title>");
+    var actualDomains = BookContentsResolver.Resolve(
+        domainsActualStart, domainsActualStart, HtmlDocumentCollection.Ravenloft);
+    Require(actualDomains.PagePath == Path.GetFullPath(domainsContentsOne),
+        "Domains of Dread did not open the first page of its real multi-page contents.");
+    Require(actualDomains.ContentsPagePaths?.SequenceEqual(
+                new[] { domainsContentsOne, domainsContentsTwo, domainsContentsThree }
+                    .Select(Path.GetFullPath), StringComparer.OrdinalIgnoreCase) == true,
+        "Domains of Dread did not retain all three contents pages in the centre pane.");
+
     var folder = Path.Combine(temporaryFolder, "Van_Richten_Guides_V2");
     Directory.CreateDirectory(folder);
     var startPage = Path.Combine(folder, "index.htm");
     var guidePage = Path.Combine(folder, "vr05_03.htm");
     var guideContents = Path.Combine(folder, "vr05_contents.htm");
     var guideCover = Path.Combine(folder, "vr05_00.htm");
+    var guideImageCover = Path.Combine(folder, "vr05_cover.png");
     var collectionCover = Path.Combine(folder, "cover.jpg");
+    var landingImageCover = Path.Combine(folder, "van_richtens_cover.png");
     File.WriteAllText(startPage, "<title>Van Richten Guides</title>");
     File.WriteAllText(guidePage, "<title>Liches</title>");
     File.WriteAllText(guideContents, "<title>Liches contents</title>");
     File.WriteAllText(guideCover, "<title>Liches cover</title>");
+    File.WriteAllBytes(guideImageCover, [0x89, 0x50, 0x4E, 0x47]);
     File.WriteAllBytes(collectionCover, [0xFF, 0xD8, 0xFF]);
+    File.WriteAllBytes(landingImageCover, [0x89, 0x50, 0x4E, 0x47]);
 
     var resolved = BookContentsResolver.Resolve(
         startPage, guidePage, HtmlDocumentCollection.Ravenloft);
     Require(resolved.PagePath == Path.GetFullPath(guideContents),
         "The active Van Richten guide did not select its own contents page.");
     Require(resolved.SectionTitle == "Liches", "The Van Richten guide title was not resolved.");
-    Require(resolved.CoverPagePath == Path.GetFullPath(guideCover),
-        "The active Van Richten guide did not select its own cover page.");
+    Require(resolved.CoverPagePath == Path.GetFullPath(guideImageCover),
+        "The active Van Richten guide did not prefer its supplied image cover.");
 
     var guideWithoutContents = Path.Combine(folder, "vr09_03.htm");
     var guideWithoutContentsCover = Path.Combine(folder, "vr09_00.htm");
@@ -242,8 +267,8 @@ static void CheckBookContentsResolver(string temporaryFolder)
 
     var unrelated = BookContentsResolver.Resolve(
         startPage, Path.Combine(folder, "index.htm"), HtmlDocumentCollection.Ravenloft);
-    Require(unrelated.CoverPagePath == Path.GetFullPath(collectionCover),
-        "A non-guide book did not prefer its manually supplied collection cover.");
+    Require(unrelated.CoverPagePath == Path.GetFullPath(landingImageCover),
+        "The Van Richten landing page did not select its dedicated collection cover.");
     Require(unrelated.PagePath != Path.GetFullPath(startPage),
         "A non-guide book did not select a distinct second page for the lower pane.");
 }

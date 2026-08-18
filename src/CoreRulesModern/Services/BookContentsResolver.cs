@@ -8,15 +8,17 @@ namespace CoreRulesModern.Services;
 public sealed record BookContentsLocation(
     string PagePath,
     string? SectionTitle = null,
-    string? CoverPagePath = null);
+    string? CoverPagePath = null,
+    IReadOnlyList<string>? ContentsPagePaths = null);
 
 public static partial class BookContentsResolver
 {
     private static readonly string[] ManualCoverFileNames =
     {
+        "cover.png",
         "cover.jpg",
         "cover.jpeg",
-        "cover.png",
+        "cover.gif",
         "cover.webp"
     };
 
@@ -55,14 +57,17 @@ public static partial class BookContentsResolver
         var folder = Path.GetDirectoryName(Path.GetFullPath(currentPage));
         if (folder is null) return fallback;
 
-        string? coverPage = null;
-        foreach (var extension in new[] { ".htm", ".html" })
+        var coverPage = FindGuideCover(folder, prefix);
+        if (coverPage is null)
         {
-            var candidate = Path.Combine(folder, prefix + "_00" + extension);
-            if (File.Exists(candidate))
+            foreach (var extension in new[] { ".htm", ".html" })
             {
-                coverPage = Path.GetFullPath(candidate);
-                break;
+                var candidate = Path.Combine(folder, prefix + "_00" + extension);
+                if (File.Exists(candidate))
+                {
+                    coverPage = Path.GetFullPath(candidate);
+                    break;
+                }
             }
         }
 
@@ -103,13 +108,22 @@ public static partial class BookContentsResolver
         }
 
         var linkedPages = ResolveLinkedPages(startPage, folder);
-        var contentsPage = linkedPages.FirstOrDefault(IsContentsPage) ??
+        var contentsPages = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .Where(path => path.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                           path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+            .Where(IsContentsPage)
+            .Select(Path.GetFullPath)
+            .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var contentsPage = contentsPages.FirstOrDefault() ??
+                           linkedPages.FirstOrDefault(IsContentsPage) ??
                            FindDomainsContentsAfterDedication(startPage, folder) ??
                            linkedPages.FirstOrDefault() ??
                            startPage;
         return new BookContentsLocation(
             contentsPage,
-            CoverPagePath: FindManualCover(folder) ?? startPage);
+            CoverPagePath: FindManualCover(folder) ?? startPage,
+            ContentsPagePaths: contentsPages.Length > 0 ? contentsPages : [contentsPage]);
     }
 
     private static string? FindDomainsContentsAfterDedication(string startPage, string folder)
@@ -184,7 +198,7 @@ public static partial class BookContentsResolver
 
         return new BookContentsLocation(
             secondPage,
-            CoverPagePath: FindManualCover(folder) ?? startPage);
+            CoverPagePath: FindCollectionCover(folder) ?? startPage);
     }
 
     private static string? FindManualCover(string folder)
@@ -199,6 +213,24 @@ public static partial class BookContentsResolver
         }
 
         return null;
+    }
+
+    private static string? FindGuideCover(string folder, string prefix)
+    {
+        var expectedName = prefix + "_cover.png";
+        return Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(path => Path.GetFileName(path)
+                .Equals(expectedName, StringComparison.OrdinalIgnoreCase)) is { } cover
+            ? Path.GetFullPath(cover)
+            : null;
+    }
+
+    private static string? FindCollectionCover(string folder)
+    {
+        var cover = Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(path => Path.GetFileName(path)
+                .Equals("van_richtens_cover.png", StringComparison.OrdinalIgnoreCase));
+        return cover is null ? FindManualCover(folder) : Path.GetFullPath(cover);
     }
 
     private static string? ResolveFirstLinkedPage(string startPage, string folder)
@@ -238,7 +270,7 @@ public static partial class BookContentsResolver
         return [];
     }
 
-    [GeneratedRegex(@"^(vr0[1-9])_\d+\.html?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(vr0[1-9])_(?:\d+|contents)\.html?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex VanRichtenPageName();
 
     [GeneratedRegex(@"href\s*=\s*[\""']([^\""']+\.html?(?:#[^\""']*)?)[\""']",
