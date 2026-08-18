@@ -50,6 +50,7 @@ public partial class MainWindow : Window
     private string _activeFindText = string.Empty;
     private bool _initialisingFilters;
     private string? _contentsPagePath;
+    private IReadOnlySet<string> _contentsPagePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private string? _coverPagePath;
     private ContextPanelMode _contextPanelMode;
     private SpellRecord? _displayedMainSpell;
@@ -664,6 +665,7 @@ public partial class MainWindow : Window
     {
         _contextPanelMode = ContextPanelMode.Spell;
         _contentsPagePath = null;
+        _contentsPagePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _coverPagePath = null;
         _previewedSpell = spell;
         ContentsToggleButton.Visibility = Visibility.Visible;
@@ -2032,6 +2034,9 @@ public partial class MainWindow : Window
         _contextPanelMode = ContextPanelMode.BookContents;
         var contents = BookContentsResolver.Resolve(document.StartPage, currentPage, document.Collection);
         _contentsPagePath = contents.PagePath;
+        _contentsPagePaths = new HashSet<string>(
+            contents.ContentsPagePaths ?? [contents.PagePath],
+            StringComparer.OrdinalIgnoreCase);
         _coverPagePath = contents.CoverPagePath;
         _previewedSpell = null;
         ContextBookmarkButton.Visibility = Visibility.Collapsed;
@@ -2096,6 +2101,7 @@ public partial class MainWindow : Window
     {
         _contextPanelMode = ContextPanelMode.None;
         _contentsPagePath = null;
+        _contentsPagePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _coverPagePath = null;
         _previewedSpell = null;
         ContextBookmarkButton.Visibility = Visibility.Collapsed;
@@ -2258,6 +2264,7 @@ public partial class MainWindow : Window
         (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
          path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
          path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+         path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ||
          path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase));
 
     private void CoverBrowser_NavigationStarting(
@@ -2300,7 +2307,7 @@ public partial class MainWindow : Window
             return;
         }
         if (string.IsNullOrWhiteSpace(_contentsPagePath) ||
-            PathsEqual(address.LocalPath, _contentsPagePath)) return;
+            _contentsPagePaths.Contains(Path.GetFullPath(address.LocalPath))) return;
 
         e.Cancel = true;
         NavigateDocument(address);
@@ -2337,7 +2344,7 @@ public partial class MainWindow : Window
             return;
         }
         if (string.IsNullOrWhiteSpace(_contentsPagePath) ||
-            PathsEqual(address.LocalPath, _contentsPagePath)) return;
+            _contentsPagePaths.Contains(Path.GetFullPath(address.LocalPath))) return;
 
         e.Cancel = true;
         NavigateDocument(address);
