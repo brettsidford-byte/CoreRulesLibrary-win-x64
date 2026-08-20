@@ -14,9 +14,9 @@ public partial class SettingsWindow : Window
     public SettingsWindow(UserSettingsStore.UserSettings settings)
     {
         InitializeComponent();
-        DocumentScaleBox.SelectedIndex = NormaliseScale(settings.Scale, 125) / 25 - 4;
-        SpellScaleBox.SelectedIndex = NormaliseScale(settings.SpellScale, 175) / 25 - 4;
-        RecentLimitBox.SelectedIndex = NormaliseRecentLimit(settings.RecentPageLimit) switch
+        DocumentScaleBox.SelectedIndex = SettingsNormaliser.Scale(settings.Scale, 125) / 25 - 4;
+        SpellScaleBox.SelectedIndex = SettingsNormaliser.Scale(settings.SpellScale, 175) / 25 - 4;
+        RecentLimitBox.SelectedIndex = SettingsNormaliser.RecentPageLimit(settings.RecentPageLimit) switch
         {
             10 => 0,
             20 => 1,
@@ -44,12 +44,4 @@ public partial class SettingsWindow : Window
     private static int ReadSelectedValue(System.Windows.Controls.ComboBox box, int fallback) =>
         int.TryParse(Convert.ToString(box.SelectedValue), out var value) ? value : fallback;
 
-    private static int NormaliseRecentLimit(int value) => value switch
-    {
-        10 or 20 or 30 or 50 => value,
-        _ => 20
-    };
-
-    private static int NormaliseScale(int value, int fallback) =>
-        value is >= 100 and <= 300 && value % 25 == 0 ? value : fallback;
 }

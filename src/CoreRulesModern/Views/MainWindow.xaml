@@ -273,8 +273,6 @@
             <StackPanel Grid.Row="2" Margin="4,0,4,4">
               <TextBlock x:Name="DocumentTitleText" FontSize="20" FontFamily="ITC Korinna"
                          FontWeight="Bold" TextWrapping="Wrap" Foreground="#FFF3D4" />
-              <TextBlock x:Name="DocumentPathText" Visibility="Collapsed" Margin="0,1,0,0" FontSize="10" Foreground="#E1C99C"
-                         FontFamily="ITC Korinna" FontWeight="Bold" TextWrapping="Wrap" />
             </StackPanel>
           </Grid>
           <Border Grid.Row="1" Background="{DynamicResource ParchmentBrush}">
