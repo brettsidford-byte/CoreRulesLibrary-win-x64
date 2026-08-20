@@ -1,16 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using CoreRulesModern.Models;
 
 namespace CoreRulesModern.Views;
-
-public sealed record CharacterPrintOptions(
-    string PaperSize,
-    bool Landscape,
-    int MarginMm,
-    int SectionsPerPage,
-    bool KeepSectionsTogether,
-    bool PrintBackgrounds,
-    IReadOnlyList<string> BreakAfterSections);
 
 public partial class CharacterPrintOptionsWindow : Window
 {
