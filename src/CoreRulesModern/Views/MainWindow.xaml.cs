@@ -3,7 +3,6 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -37,8 +36,6 @@ public partial class MainWindow : Window
     private readonly List<HtmlDocumentEntry> _characters = [];
     private readonly List<SpellRecord> _spells = [];
     private readonly List<string> _spellLoadErrors = [];
-    private readonly Dictionary<string, int> _maximumAdndHeadingSizes =
-        new(StringComparer.OrdinalIgnoreCase);
     private UserSettingsStore.UserSettings _settings = new();
     private HtmlDocumentEntry? _selectedDocument;
     private OnlineResourceEntry? _selectedOnlineResource;
@@ -960,7 +957,7 @@ public partial class MainWindow : Window
                 "font[size='+3'],font[size='+3'] *,font[size='6'],font[size='6'] *," +
                 "font[size='+4'],font[size='+4'] *,font[size='7'],font[size='7'] *{" +
                 "font-family:'Core Rules University Roman','University Roman Std','University Roman',serif!important;}" +
-                CreateMaximumAdndHeadingCss() +
+                CreateExplicitFrizFontCss() +
                 CreateThemedScrollbarCss() +
                 "p.core-rules-body-paragraph{margin-top:0!important;margin-bottom:0!important;text-indent:1.5em!important;}" +
                 "p.core-rules-heading-paragraph{margin-top:1em!important;margin-bottom:0!important;text-indent:0!important;}" +
@@ -968,7 +965,7 @@ public partial class MainWindow : Window
                 "margin:0!important;padding:0!important;}";
             head.appendChild(style);
 
-            ApplyMaximumAdndHeadingFont(document);
+            ApplyExplicitFrizFontClasses(document);
 
             dynamic paragraphs = document.getElementsByTagName("p");
             var paragraphCount = (int)paragraphs.length;
@@ -1147,14 +1144,13 @@ public partial class MainWindow : Window
                   CreateThemedScrollbarCss() +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
-        var characterPrintScript = CreateCharacterPrintScript();
         var script = "(() => {" +
                      "const id='core-rules-library-style';" +
                      "document.getElementById(id)?.remove();" +
                      "const style=document.createElement('style');" +
                      "style.id=id;style.textContent=" + encodedCss + ";" +
                      "(document.head||document.documentElement).appendChild(style);" +
-                     characterPrintScript +
+                     CreateExplicitFrizFontScript() +
                      "const body=document.body;" +
                      "if(body){" +
                      "const text=(body.innerText||'').replace(/[\\s\\u00a0]/g,'');" +
@@ -1196,6 +1192,8 @@ public partial class MainWindow : Window
             var name = Path.GetFileNameWithoutExtension(path);
             var family = name.Contains("korinna", StringComparison.OrdinalIgnoreCase) ? "Core Rules Korinna" :
                 name.Contains("honda", StringComparison.OrdinalIgnoreCase) ? "Core Rules Honda" :
+                name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
+                name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "Core Rules Friz Quadrata Bold" :
                 name.Contains("friz", StringComparison.OrdinalIgnoreCase) ? "Core Rules Friz Quadrata" :
                 name.Contains("university", StringComparison.OrdinalIgnoreCase) ? "Core Rules University Roman" :
                 name.Contains("antiqua", StringComparison.OrdinalIgnoreCase) ? "Core Rules Book Antiqua" : null;
@@ -1225,7 +1223,10 @@ public partial class MainWindow : Window
                                     path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
         {
             var name = Path.GetFileNameWithoutExtension(path);
-            var family = name.Contains("friz", StringComparison.OrdinalIgnoreCase)
+            var family = name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
+                         name.Contains("bold", StringComparison.OrdinalIgnoreCase)
+                ? "Core Rules Friz Quadrata Bold"
+                : name.Contains("friz", StringComparison.OrdinalIgnoreCase)
                 ? "Core Rules Friz Quadrata"
                 : name.Contains("university", StringComparison.OrdinalIgnoreCase)
                 ? "Core Rules University Roman"
@@ -1268,96 +1269,50 @@ public partial class MainWindow : Window
             "font[size='+3'],font[size='+3'] *,font[size='6'],font[size='6'] *," +
             "font[size='+4'],font[size='+4'] *,font[size='7'],font[size='7'] *";
 
-        return _selectedDocument.Collection == HtmlDocumentCollection.Ravenloft
+        var collectionCss = _selectedDocument.Collection == HtmlDocumentCollection.Ravenloft
             ? "html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif !important;}" +
               $"{majorHeadings}{{font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif !important;font-weight:normal !important;}}"
             : "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif !important;}" +
-              $"{allAdndHeadings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}" +
-              CreateMaximumAdndHeadingCss();
+              $"{allAdndHeadings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
+        return collectionCss + CreateExplicitFrizFontCss();
     }
 
-    private string CreateMaximumAdndHeadingCss()
+    private static string CreateExplicitFrizFontCss() =>
+        ".core-rules-friz-bold,.core-rules-friz-bold *{" +
+        "font-family:'Core Rules Friz Quadrata Bold','Friz Quadrata Bold',serif!important;" +
+        "font-weight:bold!important;}" +
+        ".core-rules-friz-regular,.core-rules-friz-regular *{" +
+        "font-family:'Core Rules Friz Quadrata','Friz Quadrata',serif!important;" +
+        "font-weight:normal!important;}";
+
+    private static void ApplyExplicitFrizFontClasses(dynamic document)
     {
-        if (_selectedDocument?.Collection != HtmlDocumentCollection.AdndSecondEdition) return string.Empty;
-
-        var maximumSize = GetMaximumAdndHeadingSize(_selectedDocument);
-        if (maximumSize is not (5 or 6)) return string.Empty;
-
-        var relativeSize = maximumSize == 6 ? "+3" : "+2";
-        return $"font[size='{maximumSize}'],font[size='{maximumSize}'] *," +
-               $"font[size='{relativeSize}'],font[size='{relativeSize}'] *{{" +
-               "font-family:'Core Rules Friz Quadrata','Friz Quadrata',serif!important;" +
-               "font-weight:bold!important;}";
-    }
-
-    private void ApplyMaximumAdndHeadingFont(dynamic document)
-    {
-        if (_selectedDocument?.Collection != HtmlDocumentCollection.AdndSecondEdition) return;
-
-        var maximumSize = GetMaximumAdndHeadingSize(_selectedDocument);
-        if (maximumSize is not (5 or 6)) return;
-
         dynamic fonts = document.getElementsByTagName("font");
         var fontCount = (int)fonts.length;
         for (var index = 0; index < fontCount; index++)
         {
             dynamic font = fonts.item(index);
-            var rawSize = Convert.ToString(font.getAttribute("size")) ?? string.Empty;
-            if (NormalizeLegacyFontSize(rawSize) != maximumSize) continue;
+            string face = Convert.ToString((object?)font.getAttribute("face")) ?? string.Empty;
+            var faces = face.Split(',').Select(value => value.Trim().Trim('\'', '"'));
+            var className = faces.Any(value => value.Equals("Friz Quadrata Bold", StringComparison.OrdinalIgnoreCase))
+                ? "core-rules-friz-bold"
+                : faces.Any(value => value.Equals("Friz Quadrata", StringComparison.OrdinalIgnoreCase))
+                    ? "core-rules-friz-regular"
+                    : null;
+            if (className is null) continue;
 
-            font.style.fontFamily = "'Core Rules Friz Quadrata','Friz Quadrata',serif";
-            font.style.fontWeight = "bold";
+            string existingClass = (Convert.ToString((object?)font.className) ?? string.Empty).Trim();
+            font.className = string.IsNullOrEmpty(existingClass)
+                ? className
+                : existingClass + " " + className;
         }
     }
 
-    private static int NormalizeLegacyFontSize(string rawSize)
-    {
-        var size = rawSize.Trim();
-        return size switch
-        {
-            "6" or "+3" => 6,
-            "5" or "+2" => 5,
-            _ => 0
-        };
-    }
-
-    private int GetMaximumAdndHeadingSize(HtmlDocumentEntry document)
-    {
-        var key = Path.GetFullPath(document.StartPage);
-        if (_maximumAdndHeadingSizes.TryGetValue(key, out var cached)) return cached;
-
-        var folder = Path.GetDirectoryName(key);
-        var maximum = 0;
-        if (folder is not null && Directory.Exists(folder))
-        {
-            try
-            {
-                foreach (var path in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
-                             .Where(path => path.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
-                                            path.EndsWith(".html", StringComparison.OrdinalIgnoreCase)))
-                {
-                    var html = File.ReadAllText(path);
-                    foreach (Match match in Regex.Matches(
-                                 html,
-                                 "<font\\b[^>]*\\bsize\\s*=\\s*[\\\"']?\\s*(6|5|\\+3|\\+2)(?=[\\\"'\\s>])",
-                                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
-                    {
-                        maximum = Math.Max(maximum, NormalizeLegacyFontSize(match.Groups[1].Value));
-                        if (maximum == 6) break;
-                    }
-
-                    if (maximum == 6) break;
-                }
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                maximum = 0;
-            }
-        }
-
-        _maximumAdndHeadingSizes[key] = maximum;
-        return maximum;
-    }
+    private static string CreateExplicitFrizFontScript() =>
+        "for(const font of document.querySelectorAll('font[face]')){" +
+        "const faces=(font.getAttribute('face')||'').split(',').map(value=>value.trim().replace(/^['\\\"]|['\\\"]$/g,''));" +
+        "if(faces.some(value=>value.toLowerCase()==='friz quadrata bold'))font.classList.add('core-rules-friz-bold');" +
+        "else if(faces.some(value=>value.toLowerCase()==='friz quadrata'))font.classList.add('core-rules-friz-regular');}";
 
     private static string CreateThemedScrollbarCss() =>
         "html,body{scrollbar-face-color:#765531;scrollbar-track-color:#1d130e;" +
@@ -1467,8 +1422,6 @@ public partial class MainWindow : Window
                "@media print{@page{margin:12mm;}html,body{overflow:visible!important;background:#fff!important;}" +
                "body{padding:0!important;width:auto!important;max-width:none!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}" +
                "body>table,body>table[width]{width:100%!important;max-width:none!important;margin:0 0 7mm!important;border-spacing:0!important;}" +
-               "body>table{break-inside:avoid-page;page-break-inside:avoid;}" +
-               "body>table.cr-print-break{break-before:page;page-break-before:always;}" +
                "body>table>tbody>tr>td>table[border='1']{background:#fff!important;box-shadow:none!important;}" +
                "body>p:last-of-type{break-before:avoid-page;}" +
                "body::-webkit-scrollbar,html::-webkit-scrollbar{display:none!important;}}";
@@ -1521,9 +1474,7 @@ public partial class MainWindow : Window
                 "if(!options.PrintBackgrounds)css+='html,body,body *{background-image:none!important;box-shadow:none!important;}';" +
                 "style.textContent=css+'}';(document.head||document.documentElement).appendChild(style);" +
                 "const sections=Array.from(document.querySelectorAll('body>table'));" +
-                "sections.forEach(s=>s.classList.remove('cr-print-break','cr-user-print-break'));" +
-                "const automaticBreaks=new Set(['Combat','Weapons','Racial Abilities','Spells','Inventory','Spells Memorized','Spells Known','Character History']);" +
-                "if(options.SectionsPerPage===0&&!options.BreakAfterSections.length){sections.forEach((s,i)=>{const heading=s.querySelector(\"table[border='1'] font:first-child strong\")?.textContent?.trim()||`Section ${i+1}`;if(automaticBreaks.has(heading))s.classList.add('cr-print-break');});}" +
+                "sections.forEach(s=>s.classList.remove('cr-user-print-break'));" +
                 "if(options.SectionsPerPage>0){sections.forEach((s,i)=>{if(i>0&&i%options.SectionsPerPage===0)s.classList.add('cr-user-print-break');});}" +
                 "for(let i=0;i<sections.length-1;i++){const heading=sections[i].querySelector(\"table[border='1'] font:first-child strong\")?.textContent?.trim()||`Section ${i+1}`;" +
                 "if(options.BreakAfterSections.includes(heading))sections[i+1].classList.add('cr-user-print-break');}" +
@@ -1545,25 +1496,6 @@ public partial class MainWindow : Window
             ? $"url('{new Uri(path).AbsoluteUri}')"
             : "radial-gradient(circle at 12% 8%,rgba(255,255,255,.52),transparent 28%)," +
               "linear-gradient(135deg,#eee7da 0%,#ded3c1 100%)";
-    }
-
-    private string CreateCharacterPrintScript()
-    {
-        if (_selectedDocument?.Kind != HtmlDocumentKind.Character) return string.Empty;
-
-        // These classes have no screen styling. They mark natural boundaries
-        // in Core Rules 2 exports for WebView2's print pagination.
-        return """
-            const printBreakHeadings=new Set([
-              'Combat','Weapons','Racial Abilities','Spells','Inventory',
-              'Spells Memorized','Spells Known','Character History'
-            ]);
-            for(const card of document.querySelectorAll("table[border='1']")){
-              if(card.parentElement?.closest("table[border='1']"))continue;
-              const heading=card.querySelector(':scope>tbody>tr>td>font:first-child strong')?.textContent?.trim()||'';
-              if(printBreakHeadings.has(heading))card.closest('body>table')?.classList.add('cr-print-break');
-            }
-            """;
     }
 
     private static string CreateRulesBoxCss() =>
