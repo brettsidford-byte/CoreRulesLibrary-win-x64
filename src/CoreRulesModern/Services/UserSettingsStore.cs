@@ -47,11 +47,9 @@ public sealed class UserSettingsStore
         settings ??= new UserSettings();
         return settings with
         {
-            Scale = NormaliseScale(settings.Scale, 125),
-            SpellScale = NormaliseScale(settings.SpellScale, 175),
-            RecentPageLimit = settings.RecentPageLimit is 10 or 20 or 30 or 50
-                ? settings.RecentPageLimit
-                : 20,
+            Scale = SettingsNormaliser.Scale(settings.Scale, 125),
+            SpellScale = SettingsNormaliser.Scale(settings.SpellScale, 175),
+            RecentPageLimit = SettingsNormaliser.RecentPageLimit(settings.RecentPageLimit),
             BookReferenceCoverHeight = settings.BookReferenceCoverHeight is >= 120 and <= 1000
                 ? settings.BookReferenceCoverHeight
                 : 240,
@@ -86,9 +84,6 @@ public sealed class UserSettingsStore
             return null;
         }
     }
-
-    private static int NormaliseScale(int value, int fallback) =>
-        value is >= 100 and <= 300 && value % 25 == 0 ? value : fallback;
 
     public sealed record UserSettings(
         string? LibraryPath = null,

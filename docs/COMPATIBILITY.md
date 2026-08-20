@@ -31,9 +31,10 @@ The viewer does not parse or modify `Chars/*.dat`, `index.chr`, databases, HTML 
 
 ## HTML engine
 
-All books, character sheets, spell descriptions and online resources use Microsoft
-WebView2. Styling is injected only in memory to apply the optional packaged fonts;
-scaling uses WebView2's native zoom and source files remain unchanged.
+Original AD&D 2nd Edition WebHelp books use the Windows WebBrowser (WebView1) engine
+for compatibility with their legacy HTML and navigation. Ravenloft books, character
+sheets, spell descriptions and online resources use Microsoft WebView2. Styling is
+injected only in memory; source files remain unchanged.
 
 ## Optional local fonts
 
@@ -45,4 +46,5 @@ files are never modified.
 
 Legacy pages that explicitly specify `<FONT FACE="Friz Quadrata Bold">` or
 `<FONT FACE="Friz Quadrata">` use the corresponding packaged bold or regular Friz
-asset. Font size alone does not trigger a Friz substitution.
+asset. `<FONT FACE="quadrat-serial-xbold">` uses the packaged Quadrat Serial XBold
+asset. Matching is case-insensitive. Font size alone does not trigger substitution.

@@ -11,7 +11,8 @@
 ## 2. Testing and refinement
 
 - Verify all supplied books and representative character exports
-- Read-only `Spells.dat` and `SpellsU.dat` browser grouped by caster type and level
+- Continue compatibility testing of the implemented read-only `Spells.dat` and
+  `SpellsU.dat` browser
 - Improve legacy table layout at high display scales
 - Add refresh and document error reporting
 - Confirm image and internal-link compatibility

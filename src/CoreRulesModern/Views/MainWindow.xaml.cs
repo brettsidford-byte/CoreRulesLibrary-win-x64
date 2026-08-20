@@ -1,7 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -31,6 +29,7 @@ public partial class MainWindow : Window
     private readonly CharacterSheetCatalogue _characterCatalogue = new();
     private readonly SpellDatabaseParser _spellParser = new();
     private readonly SpellHelpTopicCatalogue _spellHelpTopics = new();
+    private readonly SpellHtmlRenderer _spellHtmlRenderer;
     private readonly PackagedFontLoader _fontLoader = new();
     private readonly List<HtmlDocumentEntry> _books = [];
     private readonly List<HtmlDocumentEntry> _characters = [];
@@ -59,6 +58,7 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        _spellHtmlRenderer = new SpellHtmlRenderer(_spellHelpTopics);
         _fontLoader.Load();
         InitializeComponent();
         ApplyApplicationTitleFont();
@@ -136,8 +136,8 @@ public partial class MainWindow : Window
     private void LoadSavedLibrary()
     {
         _settings = _settingsStore.Load();
-        _scale = NormaliseScale(_settings.Scale, 125);
-        _spellScale = NormaliseScale(_settings.SpellScale, 175);
+        _scale = SettingsNormaliser.Scale(_settings.Scale, 125);
+        _spellScale = SettingsNormaliser.Scale(_settings.SpellScale, 175);
         ScaleBox.SelectedIndex = _scale / 25 - 4;
         SpellScaleBox.SelectedIndex = _spellScale / 25 - 4;
 
@@ -567,7 +567,6 @@ public partial class MainWindow : Window
         OnlinePanel.Visibility = Visibility.Collapsed;
         DocumentPanel.Visibility = Visibility.Visible;
         DocumentTitleText.Text = document.Title;
-        DocumentPathText.Text = targetPage;
         CharacterPrintButton.Visibility = document.Kind == HtmlDocumentKind.Character
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -648,7 +647,7 @@ public partial class MainWindow : Window
             await SpellBrowser.EnsureCoreWebView2Async();
             HardenWebView(SpellBrowser.CoreWebView2);
             ApplySpellScale();
-            SpellBrowser.NavigateToString(CreateSpellHtml(spell));
+            SpellBrowser.NavigateToString(_spellHtmlRenderer.Render(spell));
         }
         catch (Exception exception)
         {
@@ -675,7 +674,7 @@ public partial class MainWindow : Window
             await SpellContextBrowser.EnsureCoreWebView2Async();
             HardenWebView(SpellContextBrowser.CoreWebView2);
             SpellContextBrowser.ZoomFactor = 0.9;
-            SpellContextBrowser.NavigateToString(CreateSpellHtml(spell));
+            SpellContextBrowser.NavigateToString(_spellHtmlRenderer.Render(spell));
             UpdateSpellBookmarkButtons();
             FooterStatus.Text = $"Previewing {spell.Name} · main viewer retained";
         }
@@ -720,120 +719,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private string CreateSpellHtml(SpellRecord spell)
-    {
-        var helpTopic = string.IsNullOrWhiteSpace(spell.Description) ? _spellHelpTopics.Find(spell) : null;
-        var html = new StringBuilder();
-        html.Append("<!doctype html><html><head><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">");
-        if (helpTopic is not null)
-        {
-            html.Append("<base href=\"").Append(Encode(new Uri(helpTopic.PagePath).AbsoluteUri)).Append("\">");
-        }
-        html.Append("<style>").Append(CreatePackagedFontCss()).Append(CreateThemedScrollbarCss());
-        html.Append("html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
-        html.Append("body{margin:22px;color:#17212b;background-color:#f5e8c8;background-image:")
-            .Append(CreateParchmentBackgroundImage())
-            .Append(";background-repeat:repeat;background-size:768px 768px;font-size:16px;line-height:1.45}");
-        html.Append(".badges{margin:0 0 18px}.badge{display:inline-block;background:#8d2f23;color:#fff;padding:4px 9px;margin:0 6px 6px 0;border-radius:3px}");
-        html.Append("table{border-collapse:collapse;width:100%;max-width:980px;margin-bottom:24px}th,td{border-bottom:1px solid #d8d2c6;padding:9px 12px;text-align:left;vertical-align:top}");
-        html.Append("th{width:190px;background:#f4f0e7}.description{max-width:980px;white-space:pre-wrap}.muted{color:#657078;font-style:italic}h2{color:#8d2f23;margin-top:22px}");
-        html.Append("</style></head><body>");
-        html.Append("<div class=\"badges\">");
-        if (spell.WizardSpell) AppendBadge(html, "Wizard");
-        if (spell.PriestSpell) AppendBadge(html, "Priest");
-        AppendBadge(html, $"Level {spell.Level}");
-        AppendBadge(html, spell.DatabaseKind == SpellDatabaseKind.Core ? "Core Rules" : "User database");
-        html.Append("</div><table>");
-        AppendRow(html, "Schools", Join(spell.Schools));
-        AppendRow(html, "Spheres", Join(spell.Spheres));
-        AppendRow(html, "Range", spell.Range);
-        AppendRow(html, "Duration", spell.Duration);
-        AppendRow(html, "Area of effect", spell.AreaOfEffect);
-        AppendRow(html, "Casting time", spell.CastingTime);
-        AppendRow(html, "Components", spell.Components);
-        AppendRow(html, "Saving throw", spell.SavingThrow);
-        AppendRow(html, "Critical", spell.Critical);
-        AppendRow(html, "Knockdown", spell.Knockdown);
-        AppendRow(html, "Sensory", spell.Sensory);
-        AppendRow(html, "Subtlety", spell.Subtlety);
-        AppendRow(html, "Reversible", spell.Reversible ? "Yes" : "No");
-        AppendRow(html, "Never Ban Cantrip", spell.NeverBanCantrip ? "Yes" : "No");
-        if (spell.HelpTopicId > 0) AppendRow(html, "Help topic", spell.HelpTopicId.ToString());
-        html.Append("</table><h2>Description</h2>");
-        if (string.IsNullOrWhiteSpace(spell.Description))
-        {
-            if (helpTopic is null)
-            {
-                html.Append("<p class=\"muted\">No description is stored in this database record and no matching WebHelp topic was found.</p>");
-            }
-            else
-            {
-                html.Append("<div class=\"description\">").Append(helpTopic.DescriptionHtml).Append("</div>");
-                html.Append("<p class=\"muted\">")
-                    .Append(Encode(spell.Name)).Append(" — ")
-                    .Append(Encode(GetSpellHelpBookName(helpTopic.PagePath))).Append("</p>");
-            }
-        }
-        else
-        {
-            html.Append("<div class=\"description\">").Append(Encode(spell.Description)).Append("</div>");
-        }
-
-        html.Append("</body></html>");
-        return html.ToString();
-    }
-
-    private static string GetSpellHelpBookName(string pagePath)
-    {
-        var folder = Path.GetFileName(Path.GetDirectoryName(pagePath)) ?? string.Empty;
-        return folder.ToUpperInvariant() switch
-        {
-            "PHB" => "Player's Handbook",
-            "DMG" => "Dungeon Master Guide",
-            "MM" => "Monstrous Manual",
-            "AEG" => "The Complete Book of Arms and Equipment",
-            "CBH" => "The Complete Bard's Handbook",
-            "HLC" => "Dungeon Master Option: High-Level Campaigns",
-            "CDH" => "The Complete Druid's Handbook",
-            "CBD" => "The Complete Book of Dwarves",
-            "CBE" => "The Complete Book of Elves",
-            "CFH" => "The Complete Fighter's Handbook",
-            "CBGH" => "The Complete Book of Gnomes & Halflings",
-            "CBN" => "The Complete Book of Necromancers",
-            "CPAH" => "The Complete Paladin's Handbook",
-            "CT" => "Player's Option: Combat & Tactics",
-            "SM" => "Player's Option: Spells & Magic",
-            "SP" => "Player's Option: Skills & Powers",
-            "CPRH" => "The Complete Priest's Handbook",
-            "CRH" => "The Complete Ranger's Handbook",
-            "CTH" => "The Complete Thief's Handbook",
-            "TM" => "Tome of Magic",
-            "CWH" => "The Complete Wizard's Handbook",
-            _ => string.IsNullOrWhiteSpace(folder) ? "Core Rules" : folder.Replace('_', ' ')
-        };
-    }
-
-    private static void AppendBadge(StringBuilder html, string value) =>
-        html.Append("<span class=\"badge\">").Append(Encode(value)).Append("</span>");
-
-    private static void AppendRow(StringBuilder html, string label, string? value)
-    {
-        html.Append("<tr><th>").Append(Encode(label)).Append("</th><td>")
-            .Append(Encode(NormaliseSpellValue(value)))
-            .Append("</td></tr>");
-    }
-
-    private static string Join(IReadOnlyList<string> values) =>
-        values.Count == 0 ? "N/A" : NormaliseSpellValue(string.Join(", ", values));
-
-    private static string NormaliseSpellValue(string? value)
-    {
-        var trimmed = value?.Trim();
-        return string.IsNullOrEmpty(trimmed) || trimmed is "—" or "â€”" ? "N/A" : trimmed;
-    }
-
-    private static string Encode(string value) => WebUtility.HtmlEncode(value);
-
     private async void DocumentBrowser_NavigationCompleted(
         object? sender,
         CoreWebView2NavigationCompletedEventArgs e)
@@ -843,7 +728,6 @@ public partial class MainWindow : Window
         {
             var pageIndex = FindDocumentPageIndex(source.LocalPath);
             if (pageIndex >= 0) _documentPageIndex = pageIndex;
-            DocumentPathText.Text = source.LocalPath;
         }
         UpdateSequenceNavigationButtons();
         ApplyDocumentScale();
@@ -885,7 +769,6 @@ public partial class MainWindow : Window
         {
             var pageIndex = FindDocumentPageIndex(e.Uri.LocalPath);
             if (pageIndex >= 0) _documentPageIndex = pageIndex;
-            DocumentPathText.Text = e.Uri.LocalPath;
         }
         UpdateSequenceNavigationButtons();
         ApplyLegacyParagraphStyle(LegacyDocumentBrowser);
@@ -946,9 +829,9 @@ public partial class MainWindow : Window
             dynamic style = document.createElement("style");
             style.type = "text/css";
             style.styleSheet.cssText =
-                CreateLegacyFontCss() +
+                DocumentAssetCss.LegacyFontCss +
                 "html,body{background-color:#f5e8c8!important;background-image:" +
-                CreateParchmentBackgroundImage() +
+                DocumentAssetCss.ParchmentBackgroundImage +
                 "!important;background-repeat:repeat!important;}" +
                 "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif!important;}" +
                 "h1,h1 *,h2,h2 *,h3,h3 *,h4,h4 *,h5,h5 *,h6,h6 *," +
@@ -957,15 +840,15 @@ public partial class MainWindow : Window
                 "font[size='+3'],font[size='+3'] *,font[size='6'],font[size='6'] *," +
                 "font[size='+4'],font[size='+4'] *,font[size='7'],font[size='7'] *{" +
                 "font-family:'Core Rules University Roman','University Roman Std','University Roman',serif!important;}" +
-                CreateExplicitFrizFontCss() +
-                CreateThemedScrollbarCss() +
+                DocumentAssetCss.ExplicitFontCss +
+                DocumentAssetCss.ThemedScrollbarCss +
                 "p.core-rules-body-paragraph{margin-top:0!important;margin-bottom:0!important;text-indent:1.5em!important;}" +
                 "p.core-rules-heading-paragraph{margin-top:1em!important;margin-bottom:0!important;text-indent:0!important;}" +
                 "span.core-rules-paragraph-indent{display:inline-block!important;width:1.5em!important;height:0!important;" +
                 "margin:0!important;padding:0!important;}";
             head.appendChild(style);
 
-            ApplyExplicitFrizFontClasses(document);
+            ApplyExplicitFontClasses(document);
 
             dynamic paragraphs = document.getElementsByTagName("p");
             var paragraphCount = (int)paragraphs.length;
@@ -1134,14 +1017,14 @@ public partial class MainWindow : Window
     private async Task ApplyDocumentStyleAsync(CoreWebView2? webView)
     {
         if (webView is null) return;
-        var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
+        var css = DocumentAssetCss.PackagedFontCss + CreateDocumentFontCss() +
                   CreateDocumentSurfaceCss() +
                   CreateDocumentParagraphCss() +
                   CreateCharacterSheetCss() +
                   CreateRulesBoxCss() +
                   CreateResponsiveDocumentCss() +
                   CreateCoverPageCss() +
-                  CreateThemedScrollbarCss() +
+                  DocumentAssetCss.ThemedScrollbarCss +
                   "a{color:#7b241c;}font[color] a{color:inherit;}img{max-width:100%;height:auto;}";
         var encodedCss = JsonSerializer.Serialize(css);
         var script = "(() => {" +
@@ -1150,7 +1033,7 @@ public partial class MainWindow : Window
                      "const style=document.createElement('style');" +
                      "style.id=id;style.textContent=" + encodedCss + ";" +
                      "(document.head||document.documentElement).appendChild(style);" +
-                     CreateExplicitFrizFontScript() +
+                     DocumentAssetCss.ExplicitFontScript +
                      "const body=document.body;" +
                      "if(body){" +
                      "const text=(body.innerText||'').replace(/[\\s\\u00a0]/g,'');" +
@@ -1177,73 +1060,6 @@ public partial class MainWindow : Window
         {
             // The source document remains readable if it rejects injected styling.
         }
-    }
-
-    private static string CreatePackagedFontCss()
-    {
-        var folder = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
-        if (!Directory.Exists(folder)) return string.Empty;
-
-        var css = new StringBuilder();
-        foreach (var path in Directory.EnumerateFiles(folder)
-                     .Where(path => path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ||
-                                    path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
-        {
-            var name = Path.GetFileNameWithoutExtension(path);
-            var family = name.Contains("korinna", StringComparison.OrdinalIgnoreCase) ? "Core Rules Korinna" :
-                name.Contains("honda", StringComparison.OrdinalIgnoreCase) ? "Core Rules Honda" :
-                name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
-                name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "Core Rules Friz Quadrata Bold" :
-                name.Contains("friz", StringComparison.OrdinalIgnoreCase) ? "Core Rules Friz Quadrata" :
-                name.Contains("university", StringComparison.OrdinalIgnoreCase) ? "Core Rules University Roman" :
-                name.Contains("antiqua", StringComparison.OrdinalIgnoreCase) ? "Core Rules Book Antiqua" : null;
-            if (family is null) continue;
-
-            var format = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "opentype" : "truetype";
-            var mime = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "font/otf" : "font/ttf";
-            var weight = name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "bold" : "normal";
-            var style = name.Contains("italic", StringComparison.OrdinalIgnoreCase) ? "italic" : "normal";
-            css.Append("@font-face{font-family:'").Append(family).Append("';src:url(data:")
-                .Append(mime).Append(";base64,").Append(Convert.ToBase64String(File.ReadAllBytes(path)))
-                .Append(") format('").Append(format).Append("');font-style:").Append(style)
-                .Append(";font-weight:").Append(weight).Append(";}");
-        }
-
-        return css.ToString();
-    }
-
-    private static string CreateLegacyFontCss()
-    {
-        var folder = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
-        if (!Directory.Exists(folder)) return string.Empty;
-
-        var css = new StringBuilder();
-        foreach (var path in Directory.EnumerateFiles(folder)
-                     .Where(path => path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ||
-                                    path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
-        {
-            var name = Path.GetFileNameWithoutExtension(path);
-            var family = name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
-                         name.Contains("bold", StringComparison.OrdinalIgnoreCase)
-                ? "Core Rules Friz Quadrata Bold"
-                : name.Contains("friz", StringComparison.OrdinalIgnoreCase)
-                ? "Core Rules Friz Quadrata"
-                : name.Contains("university", StringComparison.OrdinalIgnoreCase)
-                ? "Core Rules University Roman"
-                : name.Contains("antiqua", StringComparison.OrdinalIgnoreCase)
-                    ? "Core Rules Book Antiqua"
-                    : null;
-            if (family is null) continue;
-
-            var format = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "opentype" : "truetype";
-            var weight = name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "bold" : "normal";
-            var style = name.Contains("italic", StringComparison.OrdinalIgnoreCase) ? "italic" : "normal";
-            css.Append("@font-face{font-family:'").Append(family).Append("';src:url('")
-                .Append(new Uri(path).AbsoluteUri).Append("') format('").Append(format)
-                .Append("');font-style:").Append(style).Append(";font-weight:").Append(weight).Append(";}");
-        }
-
-        return css.ToString();
     }
 
     private string CreateDocumentFontCss()
@@ -1274,18 +1090,10 @@ public partial class MainWindow : Window
               $"{majorHeadings}{{font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif !important;font-weight:normal !important;}}"
             : "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif !important;}" +
               $"{allAdndHeadings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
-        return collectionCss + CreateExplicitFrizFontCss();
+        return collectionCss + DocumentAssetCss.ExplicitFontCss;
     }
 
-    private static string CreateExplicitFrizFontCss() =>
-        ".core-rules-friz-bold,.core-rules-friz-bold *{" +
-        "font-family:'Core Rules Friz Quadrata Bold','Friz Quadrata Bold',serif!important;" +
-        "font-weight:bold!important;}" +
-        ".core-rules-friz-regular,.core-rules-friz-regular *{" +
-        "font-family:'Core Rules Friz Quadrata','Friz Quadrata',serif!important;" +
-        "font-weight:normal!important;}";
-
-    private static void ApplyExplicitFrizFontClasses(dynamic document)
+    private static void ApplyExplicitFontClasses(dynamic document)
     {
         dynamic fonts = document.getElementsByTagName("font");
         var fontCount = (int)fonts.length;
@@ -1298,6 +1106,8 @@ public partial class MainWindow : Window
                 ? "core-rules-friz-bold"
                 : faces.Any(value => value.Equals("Friz Quadrata", StringComparison.OrdinalIgnoreCase))
                     ? "core-rules-friz-regular"
+                    : faces.Any(value => value.Equals("quadrat-serial-xbold", StringComparison.OrdinalIgnoreCase))
+                        ? "core-rules-quadrat-xbold"
                     : null;
             if (className is null) continue;
 
@@ -1308,52 +1118,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string CreateExplicitFrizFontScript() =>
-        "for(const font of document.querySelectorAll('font[face]')){" +
-        "const faces=(font.getAttribute('face')||'').split(',').map(value=>value.trim().replace(/^['\\\"]|['\\\"]$/g,''));" +
-        "if(faces.some(value=>value.toLowerCase()==='friz quadrata bold'))font.classList.add('core-rules-friz-bold');" +
-        "else if(faces.some(value=>value.toLowerCase()==='friz quadrata'))font.classList.add('core-rules-friz-regular');}";
-
-    private static string CreateThemedScrollbarCss() =>
-        "html,body{scrollbar-face-color:#765531;scrollbar-track-color:#1d130e;" +
-        "scrollbar-arrow-color:#fff2d4;scrollbar-highlight-color:#c7a568;" +
-        "scrollbar-shadow-color:#120b08;scrollbar-3dlight-color:#9b7842;" +
-        "scrollbar-darkshadow-color:#120b08;}" +
-        "::-webkit-scrollbar{width:14px;height:14px;background:#1d130e;}" +
-        "::-webkit-scrollbar-track{background:#1d130e;border:1px solid #5d432a;}" +
-        "::-webkit-scrollbar-thumb{background:#765531;border:1px solid #9b7842;border-radius:4px;}" +
-        "::-webkit-scrollbar-thumb:hover{background:#957040;}" +
-        "::-webkit-scrollbar-corner{background:#1d130e;}";
-
     private string CreateDocumentSurfaceCss()
     {
         if (_selectedDocument?.Kind != HtmlDocumentKind.Book) return string.Empty;
 
         return "html,body{background-color:#f5e8c8!important;background-image:" +
-               CreateParchmentBackgroundImage() +
+               DocumentAssetCss.ParchmentBackgroundImage +
                "!important;background-repeat:repeat!important;background-size:768px 768px!important;}";
-    }
-
-    private static string CreateParchmentBackgroundImage()
-    {
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "ParchmentTexture.jpg");
-        if (!File.Exists(path)) return "none";
-
-        try
-        {
-            // NavigateToString documents have no local-file origin. Embedding the
-            // packaged texture keeps spell surfaces consistent with book readers.
-            var encoded = Convert.ToBase64String(File.ReadAllBytes(path));
-            return $"url('data:image/jpeg;base64,{encoded}')";
-        }
-        catch (IOException)
-        {
-            return "none";
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return "none";
-        }
     }
 
     private string CreateDocumentParagraphCss()
@@ -1435,8 +1206,7 @@ public partial class MainWindow : Window
         try
         {
             var headingsJson = await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(
-                "Array.from(document.querySelectorAll('body>table')).map((section,index)=>" +
-                "section.querySelector(\"table[border='1'] font:first-child strong\")?.textContent?.trim()||`Section ${index+1}`)");
+                CharacterPrintScriptBuilder.ReadSectionHeadingsScript);
             var headings = JsonSerializer.Deserialize<string[]>(headingsJson) ?? [];
             var initial = new CharacterPrintOptions(
                 _settings.CharacterPrintPaperSize,
@@ -1462,23 +1232,8 @@ public partial class MainWindow : Window
             };
             SaveSettings();
 
-            var encoded = JsonSerializer.Serialize(options);
             await DocumentBrowser.CoreWebView2.ExecuteScriptAsync(
-                "(()=>{const options=" + encoded + ";" +
-                "document.getElementById('core-rules-print-options')?.remove();" +
-                "const style=document.createElement('style');style.id='core-rules-print-options';" +
-                "const orientation=options.Landscape?'landscape':'portrait';" +
-                "let css=`@media print{@page{size:${options.PaperSize} ${orientation};margin:${options.MarginMm}mm;}" +
-                "body>table.cr-user-print-break{break-before:page!important;page-break-before:always!important;}`;" +
-                "css+=options.KeepSectionsTogether?'body>table{break-inside:avoid-page!important;page-break-inside:avoid!important;}':'body>table{break-inside:auto!important;page-break-inside:auto!important;}';" +
-                "if(!options.PrintBackgrounds)css+='html,body,body *{background-image:none!important;box-shadow:none!important;}';" +
-                "style.textContent=css+'}';(document.head||document.documentElement).appendChild(style);" +
-                "const sections=Array.from(document.querySelectorAll('body>table'));" +
-                "sections.forEach(s=>s.classList.remove('cr-user-print-break'));" +
-                "if(options.SectionsPerPage>0){sections.forEach((s,i)=>{if(i>0&&i%options.SectionsPerPage===0)s.classList.add('cr-user-print-break');});}" +
-                "for(let i=0;i<sections.length-1;i++){const heading=sections[i].querySelector(\"table[border='1'] font:first-child strong\")?.textContent?.trim()||`Section ${i+1}`;" +
-                "if(options.BreakAfterSections.includes(heading))sections[i+1].classList.add('cr-user-print-break');}" +
-                "})()");
+                CharacterPrintScriptBuilder.CreateApplyOptionsScript(options));
 
             DocumentBrowser.CoreWebView2.ShowPrintUI(CoreWebView2PrintDialogKind.Browser);
         }
@@ -1547,7 +1302,7 @@ public partial class MainWindow : Window
             _selectedDocument.Collection,
             DateTimeOffset.Now);
 
-        var recentLimit = NormaliseRecentLimit(_settings.RecentPageLimit);
+        var recentLimit = SettingsNormaliser.RecentPageLimit(_settings.RecentPageLimit);
         var recent = (_settings.RecentPages ?? [])
             .Where(page => page.LocationKind != SavedLocationKind.Document ||
                            !PathsEqual(page.PagePath, fullPath))
@@ -1735,9 +1490,9 @@ public partial class MainWindow : Window
         var dialog = new SettingsWindow(_settings) { Owner = this };
         if (dialog.ShowDialog() != true) return;
 
-        _scale = NormaliseScale(dialog.DocumentScale, 125);
-        _spellScale = NormaliseScale(dialog.SpellScale, 175);
-        var recentLimit = NormaliseRecentLimit(dialog.RecentPageLimit);
+        _scale = SettingsNormaliser.Scale(dialog.DocumentScale, 125);
+        _spellScale = SettingsNormaliser.Scale(dialog.SpellScale, 175);
+        var recentLimit = SettingsNormaliser.RecentPageLimit(dialog.RecentPageLimit);
         IReadOnlyList<SavedPage> recentPages = dialog.ClearRecentPages
             ? []
             : (_settings.RecentPages ?? []).Take(recentLimit).ToArray();
@@ -2334,7 +2089,7 @@ public partial class MainWindow : Window
     private void TrackOnlinePage(Uri address, string pageTitle)
     {
         var savedPage = CreateOnlineSavedPage(address, pageTitle);
-        var recentLimit = NormaliseRecentLimit(_settings.RecentPageLimit);
+        var recentLimit = SettingsNormaliser.RecentPageLimit(_settings.RecentPageLimit);
         var recent = (_settings.RecentPages ?? [])
             .Where(page => !SavedLocationsEqual(page, savedPage))
             .Prepend(savedPage)
@@ -2457,12 +2212,4 @@ public partial class MainWindow : Window
         _settingsStore.Save(_settings);
     }
 
-    private static int NormaliseScale(int scale, int fallback) =>
-        scale is >= 100 and <= 300 && scale % 25 == 0 ? scale : fallback;
-
-    private static int NormaliseRecentLimit(int value) => value switch
-    {
-        10 or 20 or 30 or 50 => value,
-        _ => 20
-    };
 }

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net;
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using CoreRulesModern.Models;
 
@@ -13,6 +14,9 @@ public sealed record BookContentsLocation(
 
 public static partial class BookContentsResolver
 {
+    private static readonly ConcurrentDictionary<(string StartPage, HtmlDocumentCollection Collection), BookContentsLocation>
+        FallbackCache = new();
+
     private static readonly string[] ManualCoverFileNames =
     {
         "cover.png",
@@ -42,12 +46,12 @@ public static partial class BookContentsResolver
         HtmlDocumentCollection collection = HtmlDocumentCollection.None)
     {
         var start = Path.GetFullPath(startPage);
-        var fallback = collection switch
+        var fallback = FallbackCache.GetOrAdd((start, collection), key => key.Collection switch
         {
-            HtmlDocumentCollection.AdndSecondEdition => ResolveCoreRulesContents(start),
-            HtmlDocumentCollection.Ravenloft when IsDomainsOfDread(start) => ResolveDomainsOfDread(start),
-            _ => ResolveFirstTwoPages(start)
-        };
+            HtmlDocumentCollection.AdndSecondEdition => ResolveCoreRulesContents(key.StartPage),
+            HtmlDocumentCollection.Ravenloft when IsDomainsOfDread(key.StartPage) => ResolveDomainsOfDread(key.StartPage),
+            _ => ResolveFirstTwoPages(key.StartPage)
+        });
         if (string.IsNullOrWhiteSpace(currentPage)) return fallback;
 
         var match = VanRichtenPageName().Match(Path.GetFileName(currentPage));
