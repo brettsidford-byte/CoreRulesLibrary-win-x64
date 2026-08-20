@@ -42,3 +42,7 @@ beside the executable. AD&D 2nd Edition books use Book Antiqua body text with
 University Roman Std headings. Ravenloft books use ITC Korinna body text with Honda
 headings. Missing families fall back to commonly available serif fonts; the HTML source
 files are never modified.
+
+Legacy pages that explicitly specify `<FONT FACE="Friz Quadrata Bold">` or
+`<FONT FACE="Friz Quadrata">` use the corresponding packaged bold or regular Friz
+asset. Font size alone does not trigger a Friz substitution.

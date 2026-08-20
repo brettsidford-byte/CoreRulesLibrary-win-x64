@@ -50,7 +50,7 @@
     <StackPanel Grid.Row="2" Margin="0,0,0,12">
       <TextBlock Text="Sections on each page" Margin="0,0,0,4" />
       <ComboBox x:Name="SectionsPerPageBox" SelectedValuePath="Tag">
-        <ComboBoxItem Content="Automatic — use the recommended layout" Tag="0" />
+        <ComboBoxItem Content="Automatic — let the browser paginate naturally" Tag="0" />
         <ComboBoxItem Content="One section per page" Tag="1" />
         <ComboBoxItem Content="Up to two sections per page" Tag="2" />
         <ComboBoxItem Content="Up to three sections per page" Tag="3" />
