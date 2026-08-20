@@ -1292,7 +1292,7 @@ public partial class MainWindow : Window
         for (var index = 0; index < fontCount; index++)
         {
             dynamic font = fonts.item(index);
-            var face = Convert.ToString(font.getAttribute("face")) ?? string.Empty;
+            string face = Convert.ToString((object?)font.getAttribute("face")) ?? string.Empty;
             var faces = face.Split(',').Select(value => value.Trim().Trim('\'', '"'));
             var className = faces.Any(value => value.Equals("Friz Quadrata Bold", StringComparison.OrdinalIgnoreCase))
                 ? "core-rules-friz-bold"
@@ -1301,7 +1301,7 @@ public partial class MainWindow : Window
                     : null;
             if (className is null) continue;
 
-            var existingClass = (Convert.ToString(font.className) ?? string.Empty).Trim();
+            string existingClass = (Convert.ToString((object?)font.className) ?? string.Empty).Trim();
             font.className = string.IsNullOrEmpty(existingClass)
                 ? className
                 : existingClass + " " + className;
