@@ -26,6 +26,7 @@ public partial class DiceRollerWindow : Window
         InitializeComponent();
         _pools = _store.LoadPools();
         BuildColourButtons();
+        BuildAddDieButtons();
         RefreshRecentHistory();
         RefreshPoolList();
         if (_pools.Count > 0) PoolList.SelectedIndex = 0;
@@ -138,6 +139,21 @@ public partial class DiceRollerWindow : Window
         }
     }
 
+    private void BuildAddDieButtons()
+    {
+        foreach (var sides in new[] { 4, 6, 8, 10, 12, 20, 100 })
+        {
+            var preview = new DieSpec { Sides = sides, ColourHex = "#D8C38E" };
+            var visual = CreateDieVisual(preview);
+            visual.Width = 82;
+            visual.Height = 104;
+            visual.Margin = new Thickness(5, 0, 5, 0);
+            visual.ToolTip = $"Add a d{sides}";
+            visual.MouseLeftButtonDown += (_, _) => AddDie(sides);
+            AddDiePanel.Children.Add(visual);
+        }
+    }
+
     private void NewPool_Click(object sender, RoutedEventArgs e)
     {
         var pool = new DicePool { Name = $"Pool {_pools.Count + 1}", Dice = [new DieSpec()] };
@@ -171,11 +187,11 @@ public partial class DiceRollerWindow : Window
         PoolList.SelectedIndex = Math.Clamp(index - 1, 0, _pools.Count - 1);
     }
 
-    private void AddDie_Click(object sender, RoutedEventArgs e)
+    private void AddDie(int sides)
     {
         if (_pool is null) return;
         var source = _selectedDie;
-        var die = new DieSpec { Sides = source?.Sides ?? 6, ColourHex = source?.ColourHex ?? Colours[0] };
+        var die = new DieSpec { Sides = sides, ColourHex = source?.ColourHex ?? Colours[0] };
         _pool.Dice.Add(die);
         _selectedDie = die;
         _store.SavePools(_pools);
