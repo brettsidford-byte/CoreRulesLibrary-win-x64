@@ -25,20 +25,24 @@ public sealed class UserSettingsStore
 
     public void Save(UserSettings settings)
     {
-        var directory = Path.GetDirectoryName(_settingsPath)!;
-        Directory.CreateDirectory(directory);
-        var temporaryPath = _settingsPath + ".tmp";
-        var backupPath = _settingsPath + ".bak";
-        var json = JsonSerializer.Serialize(Normalise(settings), JsonOptions);
+        try
+        {
+            var directory = Path.GetDirectoryName(_settingsPath)!;
+            Directory.CreateDirectory(directory);
+            var temporaryPath = _settingsPath + ".tmp";
+            var backupPath = _settingsPath + ".bak";
+            var json = JsonSerializer.Serialize(Normalise(settings), JsonOptions);
 
-        File.WriteAllText(temporaryPath, json);
-        if (File.Exists(_settingsPath))
-        {
-            File.Replace(temporaryPath, _settingsPath, backupPath, ignoreMetadataErrors: true);
+            File.WriteAllText(temporaryPath, json);
+            if (File.Exists(_settingsPath))
+                File.Replace(temporaryPath, _settingsPath, backupPath, ignoreMetadataErrors: true);
+            else
+                File.Move(temporaryPath, _settingsPath);
         }
-        else
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            File.Move(temporaryPath, _settingsPath);
+            // Settings persistence is best-effort. A locked, read-only or policy-managed
+            // profile must not prevent the application itself from opening.
         }
     }
 
