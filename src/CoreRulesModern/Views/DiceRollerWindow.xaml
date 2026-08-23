@@ -33,8 +33,7 @@
   </Style>
  </Window.Resources>
 
- <ScrollViewer x:Name="LayoutScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" HorizontalContentAlignment="Center" VerticalContentAlignment="Top" Background="{DynamicResource WoodTextureBrush}">
- <Grid x:Name="ScaleRoot" Width="1500" Height="920" Margin="8" HorizontalAlignment="Center" VerticalAlignment="Top"><Grid.ColumnDefinitions><ColumnDefinition Width="265"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
+ <Grid Margin="8"><Grid.ColumnDefinitions><ColumnDefinition Width="265"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
   <!-- Dice pools -->
   <Border Grid.Column="0" Background="{StaticResource ParchmentBrush}" BorderBrush="#29170E" BorderThickness="4" Padding="8" Effect="{StaticResource PanelShadow}"><DockPanel>
    <TextBlock DockPanel.Dock="Top" Text="DICE POOLS" Style="{StaticResource PanelHeader}"/>
@@ -77,16 +76,15 @@
 
   <!-- Details and results -->
   <Border Grid.Column="4" Background="{StaticResource ParchmentBrush}" BorderBrush="#29170E" BorderThickness="4" Padding="8" Effect="{StaticResource PanelShadow}"><Grid><Grid.RowDefinitions><RowDefinition Height="270"/><RowDefinition Height="8"/><RowDefinition Height="190"/><RowDefinition Height="8"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-   <StackPanel><TextBlock Text="POOL DETAILS" Style="{StaticResource PanelHeader}"/><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+   <StackPanel><TextBlock Text="POOL DETAILS" Style="{StaticResource PanelHeader}"/><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="88"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
     <TextBlock Text="Name" Style="{StaticResource FieldLabel}"/><TextBox x:Name="NameBox" Grid.Column="1" TextChanged="PoolField_Changed" Margin="2"/>
     <TextBlock Grid.Row="1" Text="PC / NPC" Style="{StaticResource FieldLabel}"/><TextBox x:Name="CharacterBox" Grid.Row="1" Grid.Column="1" TextChanged="PoolField_Changed" Margin="2"/>
     <TextBlock Grid.Row="2" Text="Pool type" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="ModeBox" Grid.Row="2" Grid.Column="1" SelectionChanged="PoolField_Changed" Margin="2"><ComboBoxItem Content="Generic"/><ComboBoxItem Content="Attack"/><ComboBoxItem Content="Damage"/></ComboBox>
-    <TextBlock Grid.Row="3" Text="Interface scale" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="ScaleBox" Grid.Row="3" Grid.Column="1" SelectionChanged="ScaleBox_SelectionChanged" Margin="2"><ComboBoxItem Content="Automatic" Tag="Auto"/><ComboBoxItem Content="60%" Tag="0.6"/><ComboBoxItem Content="70%" Tag="0.7"/><ComboBoxItem Content="80%" Tag="0.8"/><ComboBoxItem Content="90%" Tag="0.9"/><ComboBoxItem Content="100%" Tag="1"/><ComboBoxItem Content="110%" Tag="1.1"/><ComboBoxItem Content="125%" Tag="1.25"/></ComboBox>
    </Grid><GroupBox x:Name="AttackOptions" Header="Attack target" Margin="0,8,0,0" Foreground="{StaticResource Ink}" BorderBrush="#8A632E"><Grid Margin="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="72"/></Grid.ColumnDefinitions><TextBlock Text="Opponent AC" Style="{StaticResource FieldLabel}"/><TextBox x:Name="AcBox" Grid.Column="1" TextChanged="PoolField_Changed" Margin="2"/></Grid></GroupBox>
    <Button x:Name="AddDieButton" Content="+  ADD DIE" Click="AddDie_Click" Style="{StaticResource AntiqueButton}" HorizontalAlignment="Stretch" Margin="3,10,3,0" Padding="10,8" FontSize="15" ToolTip="Add another die to this pool"/>
    </StackPanel>
    <Border Grid.Row="2" BorderBrush="#8A632E" BorderThickness="1" Padding="12"><Border.Background><ImageBrush ImageSource="/CoreRulesLibrary;component/Assets/DiceRoller/ParchmentCard9Slice.png" Stretch="Fill"/></Border.Background><StackPanel><TextBlock Text="LAST ROLL" Style="{StaticResource PanelHeader}"/><TextBlock x:Name="LastRollEquation" Text="No roll yet" FontFamily="ITC Korinna" FontSize="27" FontWeight="Bold" Foreground="{StaticResource Ink}" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock x:Name="LastRollOutcome" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="#6F1717" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock x:Name="ResultText" Visibility="Collapsed"/></StackPanel></Border>
    <Grid Grid.Row="4"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="ROLL HISTORY" Style="{StaticResource PanelHeader}"/><ListBox x:Name="RecentHistoryList" Grid.Row="1" Background="Transparent" BorderThickness="0" IsHitTestVisible="False" ScrollViewer.VerticalScrollBarVisibility="Auto"><ListBox.ItemTemplate><DataTemplate><Border BorderBrush="#A27B43" BorderThickness="0,0,0,1" Padding="3,7"><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Ink}"/></Border></DataTemplate></ListBox.ItemTemplate></ListBox><Button Grid.Row="2" Style="{StaticResource AntiqueButton}" Content="FULL HISTORY…" HorizontalAlignment="Right" Margin="0,7,0,0" Click="History_Click"/></Grid>
   </Grid></Border>
- </Grid></ScrollViewer>
+ </Grid>
 </Window>
