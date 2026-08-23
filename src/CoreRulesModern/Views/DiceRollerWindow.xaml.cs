@@ -67,9 +67,7 @@ public partial class DiceRollerWindow : Window
             Thac0Box.Text = _pool.Thac0.ToString(CultureInfo.InvariantCulture);
             AcBox.Text = _pool.OpponentAc.ToString(CultureInfo.InvariantCulture);
             AttackModifierBox.Text = _pool.AttackModifier.ToString(CultureInfo.InvariantCulture);
-            PoolTitle.Text = _pool.Name;
-            PoolSubtitle.Text = _pool.CharacterName;
-            PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
+            UpdatePoolHeader();
             AttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
             LoadDieControls();
         }
@@ -105,9 +103,7 @@ public partial class DiceRollerWindow : Window
         if (int.TryParse(Thac0Box.Text, out var thac0)) _pool.Thac0 = thac0;
         if (int.TryParse(AcBox.Text, out var ac)) _pool.OpponentAc = ac;
         if (int.TryParse(AttackModifierBox.Text, out var attackMod)) _pool.AttackModifier = attackMod;
-        PoolTitle.Text = _pool.Name;
-        PoolSubtitle.Text = _pool.CharacterName;
-        PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
+        UpdatePoolHeader();
         AttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
         _store.SavePools(_pools);
         RefreshPoolList(_pool);
@@ -121,7 +117,7 @@ public partial class DiceRollerWindow : Window
         if (int.TryParse(DieModifierBox.Text, out var modifier)) _selectedDie.Modifier = modifier;
         _store.SavePools(_pools);
         RenderTray();
-        if (_pool is not null) PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
+        UpdatePoolHeader();
         RefreshPoolList(_pool);
     }
 
@@ -146,9 +142,8 @@ public partial class DiceRollerWindow : Window
         foreach (var sides in new[] { 4, 6, 8, 10, 12, 20, 100 })
         {
             var preview = new DieSpec { Sides = sides, ColourHex = "#D8C38E" };
-            var visual = CreateDieVisual(preview, showNumber: false);
-            visual.Width = 82;
-            visual.Height = 104;
+            var visual = CreateDieVisual(preview, showNumber: false, size: 68);
+            visual.Margin = new Thickness(1);
             visual.Margin = new Thickness(0);
             var button = new Button
             {
@@ -205,7 +200,7 @@ public partial class DiceRollerWindow : Window
         _store.SavePools(_pools);
         LoadDieControls();
         RenderTray();
-        PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
+        UpdatePoolHeader();
         RefreshPoolList(_pool);
     }
 
@@ -217,7 +212,7 @@ public partial class DiceRollerWindow : Window
         _store.SavePools(_pools);
         LoadDieControls();
         RenderTray();
-        PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
+        UpdatePoolHeader();
         RefreshPoolList(_pool);
     }
 
@@ -326,10 +321,17 @@ public partial class DiceRollerWindow : Window
         }
     }
 
-    private FrameworkElement CreateDieVisual(DieSpec die, bool showNumber = true)
+    private void UpdatePoolHeader()
     {
-        const double size = 132;
-        var grid = new Grid { Width = size, Height = size + 30, Margin = new Thickness(12), Cursor = Cursors.Hand, ToolTip = "Click to edit this die" };
+        if (_pool is null) return;
+        PoolTitle.Text = $"{_pool.Mode.ToString().ToUpperInvariant()} POOL";
+        PoolSubtitle.Text = string.IsNullOrWhiteSpace(_pool.CharacterName) ? _pool.Name : _pool.CharacterName;
+        PoolSummaryText.Text = _pool.Summary;
+    }
+
+    private FrameworkElement CreateDieVisual(DieSpec die, bool showNumber = true, double size = 166)
+    {
+        var grid = new Grid { Width = size, Height = size + 28, Margin = new Thickness(10), Cursor = Cursors.Hand, ToolTip = "Click to edit this die" };
         var assetName = $"d{die.Sides}";
         var faceUri = new Uri($"pack://application:,,,/CoreRulesLibrary;component/Assets/DiceRoller/DieFace-{assetName}.png", UriKind.Absolute);
         var maskUri = new Uri($"pack://application:,,,/CoreRulesLibrary;component/Assets/DiceRoller/DieFace-{assetName}-Mask.png", UriKind.Absolute);
@@ -337,11 +339,12 @@ public partial class DiceRollerWindow : Window
         var colourLayer = new Border { Width = size, Height = size, Background = BrushFromHex(die.ColourHex), OpacityMask = mask, IsHitTestVisible = false };
         var face = new Image
         {
-            Source = new BitmapImage(faceUri), Width = size, Height = size, Stretch = Stretch.Uniform, Opacity = 0.64, IsHitTestVisible = false,
-            Effect = new DropShadowEffect { Color = die == _selectedDie ? Colors.Gold : Colors.Black, BlurRadius = die == _selectedDie ? 15 : 9, ShadowDepth = die == _selectedDie ? 0 : 5, Opacity = 0.9 }
+            Source = new BitmapImage(faceUri), Width = size, Height = size, Stretch = Stretch.Uniform, Opacity = 0.38, IsHitTestVisible = false,
+            Effect = new DropShadowEffect { Color = die == _selectedDie ? Color.FromRgb(224, 175, 65) : Colors.Black, BlurRadius = die == _selectedDie ? 18 : 11, ShadowDepth = die == _selectedDie ? 0 : 6, Opacity = 0.95 }
         };
-        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = new FontFamily("Georgia"), FontSize = die.Sides == 100 ? 30 : 39, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 39, 0, 0), Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.5 }, IsHitTestVisible = false };
-        var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 135, Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 1 }, IsHitTestVisible = false };
+        var numeralTop = die.Sides switch { 4 => .43, 8 => .37, 12 or 20 => .38, 100 => .35, _ => .40 };
+        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = new FontFamily("Georgia"), FontSize = size * (die.Sides == 100 ? .22 : .285), FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, size * numeralTop, 0, 0), Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.55 }, IsHitTestVisible = false };
+        var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, FontSize = Math.Max(11, size * .095), FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = size, Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 1 }, IsHitTestVisible = false };
         grid.Children.Add(colourLayer); grid.Children.Add(face);
         if (showNumber) grid.Children.Add(number);
         grid.Children.Add(label);

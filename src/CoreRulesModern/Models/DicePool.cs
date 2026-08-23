@@ -13,6 +13,18 @@ public sealed class DicePool
     public int AttackModifier { get; set; }
     public List<DieSpec> Dice { get; set; } = [new()];
     [JsonIgnore] public string Summary => Dice.Count == 0 ? "No dice" : string.Join(" + ", Dice.GroupBy(d => new { d.Sides, d.Modifier }).Select(g => $"{g.Count()}d{g.Key.Sides}{(g.Key.Modifier > 0 ? $"+{g.Key.Modifier}" : g.Key.Modifier < 0 ? g.Key.Modifier.ToString() : string.Empty)}"));
+    [JsonIgnore] public string DetailLine => Mode switch
+    {
+        DicePoolMode.Attack => $"THAC0 {Thac0}   vs AC {OpponentAc}",
+        DicePoolMode.Damage => Dice.Select(d => d.Label).FirstOrDefault(label => !string.IsNullOrWhiteSpace(label)) ?? "Damage",
+        _ => Dice.Select(d => d.Label).FirstOrDefault(label => !string.IsNullOrWhiteSpace(label)) ?? "Generic roll"
+    };
+    [JsonIgnore] public string ModeMarkerBrush => Mode switch
+    {
+        DicePoolMode.Attack => "#A72222",
+        DicePoolMode.Damage => "#235DA8",
+        _ => "#2C7A43"
+    };
 }
 
 public enum DicePoolMode { Generic, Attack, Damage }

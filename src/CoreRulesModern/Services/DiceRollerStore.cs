@@ -68,13 +68,23 @@ public sealed class DiceRollerStore
                 .Split([Environment.NewLine + Environment.NewLine], StringSplitOptions.RemoveEmptyEntries)
                 .Select(block => block.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries))
                 .Where(lines => lines.Length > 0)
-                .Select(lines => string.Join("  ", lines.Where(line => line.StartsWith('[') || line.StartsWith("Pool:") || line.StartsWith("Result:"))))
+                .Select(lines => FormatRecentEntry(lines))
                 .Where(entry => !string.IsNullOrWhiteSpace(entry))
                 .ToList();
             entries.Reverse();
             return entries.Take(Math.Clamp(count, 1, 50)).ToList();
         }
         catch { return []; }
+    }
+
+    private static string FormatRecentEntry(string[] lines)
+    {
+        var timestamp = lines.FirstOrDefault(line => line.StartsWith('['))?.Trim('[', ']') ?? string.Empty;
+        if (DateTime.TryParse(timestamp, out var date)) timestamp = date.ToString("HH:mm");
+        var pool = lines.FirstOrDefault(line => line.StartsWith("Pool:"))?.Replace("Pool:", string.Empty).Trim() ?? "Roll";
+        var result = lines.FirstOrDefault(line => line.StartsWith("Result:"))?.Replace("Result:", string.Empty).Trim() ?? string.Empty;
+        if (result.Length > 72) result = result[..69] + "…";
+        return $"{timestamp}  {pool}\n{result}".Trim();
     }
 
     private static List<DicePool> CreateDefaults() =>
