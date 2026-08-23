@@ -12,6 +12,7 @@
     <Description>Modern Windows viewer for Core Rules WebHelp books and exported HTML character sheets.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets\DiceRoller\*.png" />
     <Content Include="Assets\Fonts\*.otf;Assets\Fonts\*.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using CoreRulesModern.Models;
 using CoreRulesModern.Services;
@@ -320,18 +321,21 @@ public partial class DiceRollerWindow : Window
 
     private FrameworkElement CreateDieVisual(DieSpec die)
     {
-        const double size = 116;
+        const double size = 132;
         var grid = new Grid { Width = size, Height = size + 30, Margin = new Thickness(12), Cursor = Cursors.Hand, ToolTip = "Click to edit this die" };
-        var polygon = new Polygon
+        var assetName = $"d{die.Sides}";
+        var faceUri = new Uri($"pack://application:,,,/CoreRulesLibrary;component/Assets/DiceRoller/DieFace-{assetName}.png", UriKind.Absolute);
+        var maskUri = new Uri($"pack://application:,,,/CoreRulesLibrary;component/Assets/DiceRoller/DieFace-{assetName}-Mask.png", UriKind.Absolute);
+        var mask = new ImageBrush(new BitmapImage(maskUri)) { Stretch = Stretch.Uniform };
+        var colourLayer = new Border { Width = size, Height = size, Background = BrushFromHex(die.ColourHex), OpacityMask = mask, IsHitTestVisible = false };
+        var face = new Image
         {
-            Width = size, Height = size, Stretch = Stretch.Fill, Fill = BrushFromHex(die.ColourHex), Stroke = die == _selectedDie ? Brushes.Gold : Brushes.Black,
-            StrokeThickness = die == _selectedDie ? 5 : 3, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top,
-            Points = PointsFor(die.Sides), Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 11, ShadowDepth = 6, Opacity = 0.75 }
+            Source = new BitmapImage(faceUri), Width = size, Height = size, Stretch = Stretch.Uniform, Opacity = 0.64, IsHitTestVisible = false,
+            Effect = new DropShadowEffect { Color = die == _selectedDie ? Colors.Gold : Colors.Black, BlurRadius = die == _selectedDie ? 15 : 9, ShadowDepth = die == _selectedDie ? 0 : 5, Opacity = 0.9 }
         };
-        var facet = new Polygon { Width = size - 18, Height = size - 18, Margin = new Thickness(9), Stretch = Stretch.Fill, Fill = Brushes.Transparent, Stroke = ContrastBrush(die.ColourHex), StrokeThickness = 1, Opacity = 0.28, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Points = PointsFor(die.Sides), IsHitTestVisible = false };
-        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = new FontFamily("Georgia"), FontSize = die.Sides == 100 ? 31 : 40, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 32, 0, 0), IsHitTestVisible = false };
+        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = new FontFamily("Georgia"), FontSize = die.Sides == 100 ? 30 : 39, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 39, 0, 0), Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.5 }, IsHitTestVisible = false };
         var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 135, Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 1 }, IsHitTestVisible = false };
-        grid.Children.Add(polygon); grid.Children.Add(facet); grid.Children.Add(number); grid.Children.Add(label);
+        grid.Children.Add(colourLayer); grid.Children.Add(face); grid.Children.Add(number); grid.Children.Add(label);
         return grid;
     }
 
