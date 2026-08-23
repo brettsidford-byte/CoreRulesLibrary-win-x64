@@ -91,6 +91,7 @@ public partial class DiceRollerWindow : Window
             DieThac0Box.Text = _selectedDie.Thac0.ToString(CultureInfo.InvariantCulture);
             DieAttackBonusBox.Text = _selectedDie.AttackBonus.ToString(CultureInfo.InvariantCulture);
             DieAttackOptions.Visibility = _pool?.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
+            DieAttackBonusOptions.Visibility = DieAttackOptions.Visibility;
         }
         finally { _loading = false; }
     }
@@ -105,6 +106,7 @@ public partial class DiceRollerWindow : Window
         UpdatePoolHeader();
         AttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
         DieAttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
+        DieAttackBonusOptions.Visibility = DieAttackOptions.Visibility;
         _store.SavePools(_pools);
         RefreshPoolList(_pool);
     }
