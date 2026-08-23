@@ -18,7 +18,11 @@ public sealed class DiceRollerStore
         try
         {
             if (File.Exists(PoolsPath))
-                return JsonSerializer.Deserialize<List<DicePool>>(File.ReadAllText(PoolsPath)) ?? CreateDefaults();
+            {
+                var pools = JsonSerializer.Deserialize<List<DicePool>>(File.ReadAllText(PoolsPath)) ?? CreateDefaults();
+                MigrateAttackSettings(pools);
+                return pools;
+            }
         }
         catch { }
         return CreateDefaults();
@@ -51,6 +55,21 @@ public sealed class DiceRollerStore
             File.AppendAllText(HistoryPath, sb.ToString());
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+    }
+
+    private static void MigrateAttackSettings(IEnumerable<DicePool> pools)
+    {
+        foreach (var pool in pools)
+        {
+            if (pool.Mode == DicePoolMode.Attack)
+                foreach (var die in pool.Dice)
+                {
+                    if (pool.LegacyThac0.HasValue) die.Thac0 = pool.LegacyThac0.Value;
+                    if (pool.LegacyAttackModifier.HasValue) die.AttackBonus = pool.LegacyAttackModifier.Value;
+                }
+            pool.LegacyThac0 = null;
+            pool.LegacyAttackModifier = null;
+        }
     }
 
     public string ReadHistory()

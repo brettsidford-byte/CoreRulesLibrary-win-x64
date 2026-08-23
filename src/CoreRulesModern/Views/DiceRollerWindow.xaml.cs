@@ -64,9 +64,7 @@ public partial class DiceRollerWindow : Window
             NameBox.Text = _pool.Name;
             CharacterBox.Text = _pool.CharacterName;
             ModeBox.SelectedIndex = (int)_pool.Mode;
-            Thac0Box.Text = _pool.Thac0.ToString(CultureInfo.InvariantCulture);
             AcBox.Text = _pool.OpponentAc.ToString(CultureInfo.InvariantCulture);
-            AttackModifierBox.Text = _pool.AttackModifier.ToString(CultureInfo.InvariantCulture);
             UpdatePoolHeader();
             AttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
             LoadDieControls();
@@ -84,12 +82,17 @@ public partial class DiceRollerWindow : Window
                 DieTypeBox.SelectedIndex = -1;
                 DieLabelBox.Text = string.Empty;
                 DieModifierBox.Text = string.Empty;
+                DieThac0Box.Text = string.Empty;
+                DieAttackBonusBox.Text = string.Empty;
                 return;
             }
             for (var i = 0; i < DieTypeBox.Items.Count; i++)
                 if (DieTypeBox.Items[i] is ComboBoxItem item && Convert.ToInt32(item.Tag, CultureInfo.InvariantCulture) == _selectedDie.Sides) DieTypeBox.SelectedIndex = i;
             DieLabelBox.Text = _selectedDie.Label;
             DieModifierBox.Text = _selectedDie.Modifier.ToString(CultureInfo.InvariantCulture);
+            DieThac0Box.Text = _selectedDie.Thac0.ToString(CultureInfo.InvariantCulture);
+            DieAttackBonusBox.Text = _selectedDie.AttackBonus.ToString(CultureInfo.InvariantCulture);
+            DieAttackOptions.Visibility = _pool?.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
         }
         finally { _loading = false; }
     }
@@ -100,11 +103,10 @@ public partial class DiceRollerWindow : Window
         _pool.Name = string.IsNullOrWhiteSpace(NameBox.Text) ? "Unnamed Pool" : NameBox.Text.Trim();
         _pool.CharacterName = CharacterBox.Text.Trim();
         if (ModeBox.SelectedIndex >= 0) _pool.Mode = (DicePoolMode)ModeBox.SelectedIndex;
-        if (int.TryParse(Thac0Box.Text, out var thac0)) _pool.Thac0 = thac0;
         if (int.TryParse(AcBox.Text, out var ac)) _pool.OpponentAc = ac;
-        if (int.TryParse(AttackModifierBox.Text, out var attackMod)) _pool.AttackModifier = attackMod;
         UpdatePoolHeader();
         AttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
+        DieAttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
         _store.SavePools(_pools);
         RefreshPoolList(_pool);
     }
@@ -115,6 +117,8 @@ public partial class DiceRollerWindow : Window
         if (DieTypeBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out var sides)) _selectedDie.Sides = sides;
         _selectedDie.Label = DieLabelBox.Text.Trim();
         if (int.TryParse(DieModifierBox.Text, out var modifier)) _selectedDie.Modifier = modifier;
+        if (int.TryParse(DieThac0Box.Text, out var thac0)) _selectedDie.Thac0 = thac0;
+        if (int.TryParse(DieAttackBonusBox.Text, out var attackBonus)) _selectedDie.AttackBonus = attackBonus;
         _store.SavePools(_pools);
         RenderTray();
         UpdatePoolHeader();
@@ -142,8 +146,8 @@ public partial class DiceRollerWindow : Window
 
     private void DieModifierDown_Click(object sender, RoutedEventArgs e) => SetDieModifier(ReadSignedValue(DieModifierBox.Text) - 1);
     private void DieModifierUp_Click(object sender, RoutedEventArgs e) => SetDieModifier(ReadSignedValue(DieModifierBox.Text) + 1);
-    private void AttackModifierDown_Click(object sender, RoutedEventArgs e) => SetAttackModifier(ReadSignedValue(AttackModifierBox.Text) - 1);
-    private void AttackModifierUp_Click(object sender, RoutedEventArgs e) => SetAttackModifier(ReadSignedValue(AttackModifierBox.Text) + 1);
+    private void DieAttackBonusDown_Click(object sender, RoutedEventArgs e) => SetDieAttackBonus(ReadSignedValue(DieAttackBonusBox.Text) - 1);
+    private void DieAttackBonusUp_Click(object sender, RoutedEventArgs e) => SetDieAttackBonus(ReadSignedValue(DieAttackBonusBox.Text) + 1);
 
     private static int ReadSignedValue(string text) => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : 0;
 
@@ -153,10 +157,10 @@ public partial class DiceRollerWindow : Window
         DieModifierBox.Text = value.ToString(CultureInfo.InvariantCulture);
     }
 
-    private void SetAttackModifier(int value)
+    private void SetDieAttackBonus(int value)
     {
-        if (_pool is null) return;
-        AttackModifierBox.Text = value.ToString(CultureInfo.InvariantCulture);
+        if (_selectedDie is null) return;
+        DieAttackBonusBox.Text = value.ToString(CultureInfo.InvariantCulture);
     }
 
     private void CustomColour_Click(object sender, RoutedEventArgs e)
@@ -223,8 +227,8 @@ public partial class DiceRollerWindow : Window
         var copy = new DicePool
         {
             Name = _pool.Name + " Copy", CharacterName = _pool.CharacterName, Mode = _pool.Mode,
-            Thac0 = _pool.Thac0, OpponentAc = _pool.OpponentAc, AttackModifier = _pool.AttackModifier,
-            Dice = _pool.Dice.Select(d => new DieSpec { Sides = d.Sides, Modifier = d.Modifier, Label = d.Label, ColourHex = d.ColourHex }).ToList()
+            OpponentAc = _pool.OpponentAc,
+            Dice = _pool.Dice.Select(d => new DieSpec { Sides = d.Sides, Modifier = d.Modifier, Thac0 = d.Thac0, AttackBonus = d.AttackBonus, Label = d.Label, ColourHex = d.ColourHex }).ToList()
         };
         _pools.Add(copy);
         _store.SavePools(_pools);
@@ -246,7 +250,7 @@ public partial class DiceRollerWindow : Window
     {
         if (_pool is null) return;
         var source = _selectedDie;
-        var die = new DieSpec { Sides = sides, ColourHex = source?.ColourHex ?? Colours[0] };
+        var die = new DieSpec { Sides = sides, ColourHex = source?.ColourHex ?? Colours[0], Thac0 = source?.Thac0 ?? 20, AttackBonus = source?.AttackBonus ?? 0 };
         _pool.Dice.Add(die);
         _selectedDie = die;
         _store.SavePools(_pools);
@@ -296,13 +300,17 @@ public partial class DiceRollerWindow : Window
         if (_pool is null) return;
         if (_pool.Mode == DicePoolMode.Attack && _pool.Dice.Count > 0)
         {
-            var d20 = _pool.Dice.FirstOrDefault(d => d.Sides == 20) ?? _pool.Dice[0];
-            var modifier = d20.Modifier + _pool.AttackModifier;
-            var attackTotal = d20.LastResult + modifier;
-            var hitAc = _pool.Thac0 - attackTotal;
-            var hit = d20.LastResult != 1 && (d20.LastResult == 20 || hitAc <= _pool.OpponentAc);
-            LastRollEquation.Text = $"{d20.LastResult} {FormatSignedTerm(modifier)} = {attackTotal}";
-            LastRollOutcome.Text = $"Hit AC {hitAc}  •  vs AC {_pool.OpponentAc}  —  {(d20.LastResult == 20 ? "CRITICAL" : hit ? "HIT" : "MISS")}";
+            LastRollEquation.Text = string.Join(Environment.NewLine, _pool.Dice.Select(die =>
+            {
+                var attackTotal = die.LastResult + die.Modifier + die.AttackBonus;
+                return $"{AttackName(die)}: {die.LastResult} {FormatSignedTerm(die.Modifier + die.AttackBonus)} = {attackTotal}";
+            }));
+            LastRollOutcome.Text = string.Join(Environment.NewLine, _pool.Dice.Select(die =>
+            {
+                var attackTotal = die.LastResult + die.Modifier + die.AttackBonus;
+                var hitAc = die.Thac0 - attackTotal;
+                return $"Hit AC {hitAc}  •  vs AC {_pool.OpponentAc}  —  {AttackOutcome(die, hitAc)}";
+            }));
         }
         else
         {
@@ -321,26 +329,34 @@ public partial class DiceRollerWindow : Window
         var dice = string.Join(" + ", _pool.Dice.Select(DescribeDie));
         var who = string.IsNullOrWhiteSpace(_pool.CharacterName) ? _pool.Name : $"{_pool.CharacterName} — {_pool.Name}";
         if (_pool.Mode == DicePoolMode.Attack)
-            return $"{who}: Roll {dice}{FormatModifier(_pool.AttackModifier)}. THAC0 {_pool.Thac0} vs AC {_pool.OpponentAc}.";
+            return $"{who}: " + string.Join("; ", _pool.Dice.Select(d => $"{AttackName(d)} {DescribeDie(d)}, THAC0 {d.Thac0}, attack bonus {FormatModifier(d.AttackBonus)}, vs AC {_pool.OpponentAc}")) + ".";
         return $"{who}: Roll {dice}.";
     }
 
     private string BuildResultText(int total)
     {
         if (_pool is null) return string.Empty;
-        var rolled = string.Join("; ", _pool.Dice.Select(d => $"{DescribeDie(d)} [{d.LastResult}]{(d.Modifier != 0 ? $" => {d.LastResult + d.Modifier}" : string.Empty)}"));
         if (_pool.Mode == DicePoolMode.Attack && _pool.Dice.Count > 0)
         {
-            var d20 = _pool.Dice.FirstOrDefault(d => d.Sides == 20) ?? _pool.Dice[0];
-            var attackTotal = d20.LastResult + d20.Modifier + _pool.AttackModifier;
-            var hitAc = _pool.Thac0 - attackTotal;
-            var hit = d20.LastResult == 1 ? false : d20.LastResult == 20 || hitAc <= _pool.OpponentAc;
-            return $"{rolled} · Attack total {attackTotal} · Hit AC {hitAc} · vs AC {_pool.OpponentAc}: {(hit ? "HIT" : "MISS")}";
+            return string.Join("; ", _pool.Dice.Select(die =>
+            {
+                var attackTotal = die.LastResult + die.Modifier + die.AttackBonus;
+                var hitAc = die.Thac0 - attackTotal;
+                return $"{AttackName(die)}: d{die.Sides} [{die.LastResult}] {FormatSignedTerm(die.Modifier + die.AttackBonus)} = {attackTotal} · THAC0 {die.Thac0} · Hit AC {hitAc} · vs AC {_pool.OpponentAc}: {AttackOutcome(die, hitAc)}";
+            }));
         }
+        var rolled = string.Join("; ", _pool.Dice.Select(d => $"{DescribeDie(d)} [{d.LastResult}]{(d.Modifier != 0 ? $" => {d.LastResult + d.Modifier}" : string.Empty)}"));
         return $"{rolled} · Total {total}";
     }
 
     private static string DescribeDie(DieSpec d) => $"1d{d.Sides}{FormatModifier(d.Modifier)}{(string.IsNullOrWhiteSpace(d.Label) ? string.Empty : $" ({d.Label})")}";
+    private static string AttackName(DieSpec die) => string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides} attack" : die.Label;
+    private string AttackOutcome(DieSpec die, int hitAc)
+    {
+        if (die.LastResult == 1) return "MISS";
+        if (die.Sides == 20 && die.LastResult == 20) return "CRITICAL";
+        return hitAc <= _pool!.OpponentAc ? "HIT" : "MISS";
+    }
     private static string FormatModifier(int value) => value > 0 ? $"+{value}" : value < 0 ? value.ToString(CultureInfo.InvariantCulture) : string.Empty;
 
     private void CopyRequest_Click(object sender, RoutedEventArgs e)

@@ -8,14 +8,14 @@ public sealed class DicePool
     public string Name { get; set; } = "New Pool";
     public string CharacterName { get; set; } = string.Empty;
     public DicePoolMode Mode { get; set; } = DicePoolMode.Generic;
-    public int Thac0 { get; set; } = 20;
     public int OpponentAc { get; set; } = 10;
-    public int AttackModifier { get; set; }
+    [JsonPropertyName("Thac0"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? LegacyThac0 { get; set; }
+    [JsonPropertyName("AttackModifier"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? LegacyAttackModifier { get; set; }
     public List<DieSpec> Dice { get; set; } = [new()];
     [JsonIgnore] public string Summary => Dice.Count == 0 ? "No dice" : string.Join(" + ", Dice.GroupBy(d => new { d.Sides, d.Modifier }).Select(g => $"{g.Count()}d{g.Key.Sides}{(g.Key.Modifier > 0 ? $"+{g.Key.Modifier}" : g.Key.Modifier < 0 ? g.Key.Modifier.ToString() : string.Empty)}"));
     [JsonIgnore] public string DetailLine => Mode switch
     {
-        DicePoolMode.Attack => $"THAC0 {Thac0}   vs AC {OpponentAc}",
+        DicePoolMode.Attack => $"{Dice.Count} attack{(Dice.Count == 1 ? string.Empty : "s")}   vs AC {OpponentAc}",
         DicePoolMode.Damage => Dice.Select(d => d.Label).FirstOrDefault(label => !string.IsNullOrWhiteSpace(label)) ?? "Damage",
         _ => Dice.Select(d => d.Label).FirstOrDefault(label => !string.IsNullOrWhiteSpace(label)) ?? "Generic roll"
     };
@@ -34,6 +34,8 @@ public sealed class DieSpec
     public Guid Id { get; set; } = Guid.NewGuid();
     public int Sides { get; set; } = 20;
     public int Modifier { get; set; }
+    public int Thac0 { get; set; } = 20;
+    public int AttackBonus { get; set; }
     public string Label { get; set; } = string.Empty;
     public string ColourHex { get; set; } = "#E9D8AE";
     [JsonIgnore] public int LastResult { get; set; }
