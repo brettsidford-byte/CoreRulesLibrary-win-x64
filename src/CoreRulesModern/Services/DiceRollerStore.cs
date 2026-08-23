@@ -10,6 +10,7 @@ public sealed class DiceRollerStore
 {
     private readonly string _folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CoreRulesModern", "DiceRoller");
     private string PoolsPath => Path.Combine(_folder, "dice-pools.json");
+    private string InterfaceScalePath => Path.Combine(_folder, "interface-scale.txt");
     public string HistoryPath => Path.Combine(_folder, "DiceHistory.txt");
 
     public List<DicePool> LoadPools()
@@ -18,7 +19,11 @@ public sealed class DiceRollerStore
         try
         {
             if (File.Exists(PoolsPath))
-                return JsonSerializer.Deserialize<List<DicePool>>(File.ReadAllText(PoolsPath)) ?? CreateDefaults();
+            {
+                var pools = JsonSerializer.Deserialize<List<DicePool>>(File.ReadAllText(PoolsPath)) ?? CreateDefaults();
+                MigrateAttackSettings(pools);
+                return pools;
+            }
         }
         catch { }
         return CreateDefaults();
@@ -26,26 +31,69 @@ public sealed class DiceRollerStore
 
     public void SavePools(IEnumerable<DicePool> pools)
     {
-        Directory.CreateDirectory(_folder);
-        File.WriteAllText(PoolsPath, JsonSerializer.Serialize(pools, new JsonSerializerOptions { WriteIndented = true }));
+        try
+        {
+            Directory.CreateDirectory(_folder);
+            File.WriteAllText(PoolsPath, JsonSerializer.Serialize(pools, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
     }
 
     public int Roll(int sides) => RandomNumberGenerator.GetInt32(1, Math.Max(2, sides) + 1);
 
-    public void AppendHistory(DiceRollRecord record)
+    public string LoadInterfaceScale()
     {
-        Directory.CreateDirectory(_folder);
-        var sb = new StringBuilder();
-        sb.AppendLine($"[{record.Timestamp:dd MMMM yyyy HH:mm:ss}]");
-        sb.AppendLine($"Pool: {record.PoolName}");
-        if (!string.IsNullOrWhiteSpace(record.CharacterName)) sb.AppendLine($"PC/NPC: {record.CharacterName}");
-        sb.AppendLine($"Request: {record.RequestText}");
-        sb.AppendLine($"Result: {record.ResultText}");
-        sb.AppendLine();
-        File.AppendAllText(HistoryPath, sb.ToString());
+        try
+        {
+            var value = File.Exists(InterfaceScalePath) ? File.ReadAllText(InterfaceScalePath).Trim() : "Auto";
+            return value is "Auto" or "0.6" or "0.7" or "0.8" or "0.9" or "1" or "1.1" or "1.25" ? value : "Auto";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { return "Auto"; }
     }
 
-    public string ReadHistory() => File.Exists(HistoryPath) ? File.ReadAllText(HistoryPath) : "No rolls have been recorded yet.";
+    public void SaveInterfaceScale(string value)
+    {
+        try { Directory.CreateDirectory(_folder); File.WriteAllText(InterfaceScalePath, value); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+    }
+
+    public void AppendHistory(DiceRollRecord record)
+    {
+        try
+        {
+            Directory.CreateDirectory(_folder);
+            var sb = new StringBuilder();
+            sb.AppendLine($"[{record.Timestamp:dd MMMM yyyy HH:mm:ss}]");
+            sb.AppendLine($"Pool: {record.PoolName}");
+            if (!string.IsNullOrWhiteSpace(record.CharacterName)) sb.AppendLine($"PC/NPC: {record.CharacterName}");
+            sb.AppendLine($"Request: {record.RequestText}");
+            sb.AppendLine($"Result: {record.ResultText}");
+            sb.AppendLine();
+            File.AppendAllText(HistoryPath, sb.ToString());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+    }
+
+    private static void MigrateAttackSettings(IEnumerable<DicePool> pools)
+    {
+        foreach (var pool in pools)
+        {
+            if (pool.Mode == DicePoolMode.Attack)
+                foreach (var die in pool.Dice)
+                {
+                    if (pool.LegacyThac0.HasValue) die.Thac0 = pool.LegacyThac0.Value;
+                    if (pool.LegacyAttackModifier.HasValue) die.AttackBonus = pool.LegacyAttackModifier.Value;
+                }
+            pool.LegacyThac0 = null;
+            pool.LegacyAttackModifier = null;
+        }
+    }
+
+    public string ReadHistory()
+    {
+        try { return File.Exists(HistoryPath) ? File.ReadAllText(HistoryPath) : "No rolls have been recorded yet."; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { return "Roll history is currently unavailable."; }
+    }
 
     public IReadOnlyList<string> ReadRecentHistory(int count)
     {
@@ -56,13 +104,23 @@ public sealed class DiceRollerStore
                 .Split([Environment.NewLine + Environment.NewLine], StringSplitOptions.RemoveEmptyEntries)
                 .Select(block => block.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries))
                 .Where(lines => lines.Length > 0)
-                .Select(lines => string.Join("  ", lines.Where(line => line.StartsWith('[') || line.StartsWith("Pool:") || line.StartsWith("Result:"))))
+                .Select(lines => FormatRecentEntry(lines))
                 .Where(entry => !string.IsNullOrWhiteSpace(entry))
                 .ToList();
             entries.Reverse();
             return entries.Take(Math.Clamp(count, 1, 50)).ToList();
         }
         catch { return []; }
+    }
+
+    private static string FormatRecentEntry(string[] lines)
+    {
+        var timestamp = lines.FirstOrDefault(line => line.StartsWith('['))?.Trim('[', ']') ?? string.Empty;
+        if (DateTime.TryParse(timestamp, out var date)) timestamp = date.ToString("HH:mm");
+        var pool = lines.FirstOrDefault(line => line.StartsWith("Pool:"))?.Replace("Pool:", string.Empty).Trim() ?? "Roll";
+        var result = lines.FirstOrDefault(line => line.StartsWith("Result:"))?.Replace("Result:", string.Empty).Trim() ?? string.Empty;
+        if (result.Length > 72) result = result[..69] + "…";
+        return $"{timestamp}  {pool}\n{result}".Trim();
     }
 
     private static List<DicePool> CreateDefaults() =>

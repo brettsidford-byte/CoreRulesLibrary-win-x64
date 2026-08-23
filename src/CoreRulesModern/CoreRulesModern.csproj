@@ -7,11 +7,12 @@
     <RootNamespace>CoreRulesModern</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\CoreRulesLibrary.ico</ApplicationIcon>
-    <Version>0.9.45</Version>
+    <Version>0.9.47</Version>
     <Authors>Core Rules Modern contributors</Authors>
     <Description>Modern Windows viewer for Core Rules WebHelp books and exported HTML character sheets.</Description>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="Assets\DiceRoller\*.png" />
     <Content Include="Assets\Fonts\*.otf;Assets\Fonts\*.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
