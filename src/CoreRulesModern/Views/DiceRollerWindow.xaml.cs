@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Interop;
 using CoreRulesModern.Models;
 using CoreRulesModern.Services;
 
@@ -26,6 +28,7 @@ public partial class DiceRollerWindow : Window
     private Border? _colourSample;
     private List<DieSpec>? _rollingBatch;
     private static readonly string[] Colours = ["#E9D8AE", "#A72222", "#235DA8", "#2C7A43", "#6D3B91", "#C28C24", "#222222", "#EFEFEF", "#168A91", "#B04470"];
+    private readonly int[] _customColours = new int[16];
 
     public DiceRollerWindow()
     {
@@ -39,6 +42,7 @@ public partial class DiceRollerWindow : Window
         SelectScalePreference();
         Loaded += (_, _) => ApplyInterfaceScale();
         SizeChanged += (_, _) => { if (_interfaceScalePreference == "Auto" && IsLoaded) ApplyInterfaceScale(); };
+        DpiChanged += (_, _) => { if (_interfaceScalePreference == "Auto" && IsLoaded) ApplyInterfaceScale(); };
         Closed += (_, _) => _store.SavePools(_pools);
     }
 
@@ -70,7 +74,7 @@ public partial class DiceRollerWindow : Window
         {
             const double designWidth = 1516;
             const double designHeight = 936;
-            scale = Math.Clamp(Math.Min(Math.Max(1, LayoutScrollViewer.ActualWidth - 4) / designWidth, Math.Max(1, LayoutScrollViewer.ActualHeight - 4) / designHeight), 0.5, 1.0);
+            scale = Math.Clamp(Math.Min(Math.Max(1, LayoutScrollViewer.ActualWidth - 4) / designWidth, Math.Max(1, LayoutScrollViewer.ActualHeight - 4) / designHeight), 0.5, 1.75);
         }
         else if (!double.TryParse(_interfaceScalePreference, NumberStyles.Float, CultureInfo.InvariantCulture, out scale)) scale = 1d;
         ScaleRoot.LayoutTransform = new ScaleTransform(scale, scale);
@@ -106,7 +110,8 @@ public partial class DiceRollerWindow : Window
             NameBox.Text = _pool.Name;
             CharacterBox.Text = _pool.CharacterName;
             CharacterColourBox.SelectedIndex = Enumerable.Range(0, CharacterColourBox.Items.Count)
-                .FirstOrDefault(i => CharacterColourBox.Items[i] is ComboBoxItem item && string.Equals(item.Tag?.ToString(), _pool.CharacterColourHex, StringComparison.OrdinalIgnoreCase));
+                .Where(i => CharacterColourBox.Items[i] is ComboBoxItem item && string.Equals(item.Tag?.ToString(), _pool.CharacterColourHex, StringComparison.OrdinalIgnoreCase))
+                .DefaultIfEmpty(-1).First();
             ModeBox.SelectedIndex = (int)_pool.Mode;
             AcBox.Text = _pool.OpponentAc.ToString(CultureInfo.InvariantCulture);
             UpdatePoolHeader();
@@ -234,23 +239,62 @@ public partial class DiceRollerWindow : Window
     {
         if (_selectedDie is null) return;
         var current = _editingSecondaryColour ? _selectedDie.SecondaryColourHex : _selectedDie.ColourHex;
-        var input = new TextBox { Text = current, Margin = new Thickness(0, 8, 0, 8), FontSize = 18, HorizontalContentAlignment = HorizontalAlignment.Center };
-        var preview = new Border { Height = 52, Background = BrushFromHex(current), BorderBrush = Brushes.Black, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 0, 0, 10) };
-        var apply = new Button { Content = "APPLY COLOUR", Style = (Style)FindResource("AntiqueButton"), HorizontalAlignment = HorizontalAlignment.Right };
-        var panel = new StackPanel { Margin = new Thickness(18) };
-        panel.Children.Add(new TextBlock { Text = "CUSTOM DIE COLOUR", FontFamily = new FontFamily("ITC Korinna"), FontSize = 19, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center });
-        panel.Children.Add(new TextBlock { Text = "Enter a six-digit hex colour, for example #7A3DB8.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 0) });
-        panel.Children.Add(input); panel.Children.Add(preview); panel.Children.Add(apply);
-        var dialog = new Window { Title = "Custom Die Colour", Width = 360, Height = 260, ResizeMode = ResizeMode.NoResize, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = (Brush)FindResource("ParchmentBrush"), Content = panel };
-        input.TextChanged += (_, _) => { if (TryNormaliseColour(input.Text, out var hex)) preview.Background = BrushFromHex(hex); };
-        apply.Click += (_, _) =>
-        {
-            if (!TryNormaliseColour(input.Text, out var hex)) { MessageBox.Show(dialog, "Enter a valid colour in the form #RRGGBB.", "Invalid colour", MessageBoxButton.OK, MessageBoxImage.Information); return; }
-            if (_editingSecondaryColour) _selectedDie.SecondaryColourHex = hex; else _selectedDie.ColourHex = hex;
-            dialog.DialogResult = true;
-        };
-        if (dialog.ShowDialog() == true) { _store.SavePools(_pools); RefreshColourSample(); RenderTray(); }
+        var selected = PickColour(current);
+        if (selected is null) return;
+        if (_editingSecondaryColour) _selectedDie.SecondaryColourHex = selected; else _selectedDie.ColourHex = selected;
+        _store.SavePools(_pools);
+        RefreshColourSample();
+        RenderTray();
     }
+
+    private void NameColourPicker_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pool is null) return;
+        var selected = PickColour(_pool.CharacterColourHex);
+        if (selected is null) return;
+        _pool.CharacterColourHex = selected;
+        CharacterColourBox.SelectedIndex = -1;
+        _store.SavePools(_pools);
+        PoolList.Items.Refresh();
+    }
+
+    private string? PickColour(string currentHex)
+    {
+        var colour = (Color)ColorConverter.ConvertFromString(currentHex)!;
+        var memory = Marshal.AllocHGlobal(_customColours.Length * sizeof(int));
+        try
+        {
+            for (var index = 0; index < _customColours.Length; index++) Marshal.WriteInt32(memory, index * sizeof(int), _customColours[index]);
+            var picker = new ChooseColour
+            {
+                Size = Marshal.SizeOf<ChooseColour>(), Owner = new WindowInteropHelper(this).Handle,
+                Result = (uint)colour.R | (uint)(colour.G << 8) | (uint)(colour.B << 16), CustomColours = memory,
+                Flags = 0x00000001 | 0x00000002
+            };
+            if (!ChooseColor(ref picker)) return null;
+            for (var index = 0; index < _customColours.Length; index++) _customColours[index] = Marshal.ReadInt32(memory, index * sizeof(int));
+            return $"#{picker.Result & 0xFF:X2}{(picker.Result >> 8) & 0xFF:X2}{(picker.Result >> 16) & 0xFF:X2}";
+        }
+        finally { Marshal.FreeHGlobal(memory); }
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    private struct ChooseColour
+    {
+        public int Size;
+        public IntPtr Owner;
+        public IntPtr Instance;
+        public uint Result;
+        public IntPtr CustomColours;
+        public uint Flags;
+        public IntPtr CustomData;
+        public IntPtr Hook;
+        public string? TemplateName;
+    }
+
+    [DllImport("comdlg32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ChooseColor(ref ChooseColour picker);
 
     private static bool TryNormaliseColour(string text, out string hex)
     {
