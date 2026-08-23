@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -145,13 +146,19 @@ public partial class DiceRollerWindow : Window
         foreach (var sides in new[] { 4, 6, 8, 10, 12, 20, 100 })
         {
             var preview = new DieSpec { Sides = sides, ColourHex = "#D8C38E" };
-            var visual = CreateDieVisual(preview);
+            var visual = CreateDieVisual(preview, showNumber: false);
             visual.Width = 82;
             visual.Height = 104;
-            visual.Margin = new Thickness(5, 0, 5, 0);
-            visual.ToolTip = $"Add a d{sides}";
-            visual.MouseLeftButtonDown += (_, _) => AddDie(sides);
-            AddDiePanel.Children.Add(visual);
+            visual.Margin = new Thickness(0);
+            var button = new Button
+            {
+                Content = visual,
+                Style = (Style)FindResource("DieFaceButton"),
+                ToolTip = $"Add a d{sides}"
+            };
+            AutomationProperties.SetName(button, $"Add d{sides}");
+            button.Click += (_, _) => AddDie(sides);
+            AddDiePanel.Children.Add(button);
         }
     }
 
@@ -319,7 +326,7 @@ public partial class DiceRollerWindow : Window
         }
     }
 
-    private FrameworkElement CreateDieVisual(DieSpec die)
+    private FrameworkElement CreateDieVisual(DieSpec die, bool showNumber = true)
     {
         const double size = 132;
         var grid = new Grid { Width = size, Height = size + 30, Margin = new Thickness(12), Cursor = Cursors.Hand, ToolTip = "Click to edit this die" };
@@ -335,7 +342,9 @@ public partial class DiceRollerWindow : Window
         };
         var number = new TextBlock { Text = DisplayNumber(die), FontFamily = new FontFamily("Georgia"), FontSize = die.Sides == 100 ? 30 : 39, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 39, 0, 0), Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.5 }, IsHitTestVisible = false };
         var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 135, Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 1 }, IsHitTestVisible = false };
-        grid.Children.Add(colourLayer); grid.Children.Add(face); grid.Children.Add(number); grid.Children.Add(label);
+        grid.Children.Add(colourLayer); grid.Children.Add(face);
+        if (showNumber) grid.Children.Add(number);
+        grid.Children.Add(label);
         return grid;
     }
 
