@@ -10,6 +10,7 @@ public sealed class DiceRollerStore
 {
     private readonly string _folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CoreRulesModern", "DiceRoller");
     private string PoolsPath => Path.Combine(_folder, "dice-pools.json");
+    private string InterfaceScalePath => Path.Combine(_folder, "interface-scale.txt");
     public string HistoryPath => Path.Combine(_folder, "DiceHistory.txt");
 
     public List<DicePool> LoadPools()
@@ -39,6 +40,22 @@ public sealed class DiceRollerStore
     }
 
     public int Roll(int sides) => RandomNumberGenerator.GetInt32(1, Math.Max(2, sides) + 1);
+
+    public string LoadInterfaceScale()
+    {
+        try
+        {
+            var value = File.Exists(InterfaceScalePath) ? File.ReadAllText(InterfaceScalePath).Trim() : "Auto";
+            return value is "Auto" or "0.6" or "0.7" or "0.8" or "0.9" or "1" or "1.1" or "1.25" ? value : "Auto";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { return "Auto"; }
+    }
+
+    public void SaveInterfaceScale(string value)
+    {
+        try { Directory.CreateDirectory(_folder); File.WriteAllText(InterfaceScalePath, value); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+    }
 
     public void AppendHistory(DiceRollRecord record)
     {

@@ -19,6 +19,8 @@ public partial class DiceRollerWindow : Window
     private DicePool? _pool;
     private DieSpec? _selectedDie;
     private bool _loading;
+    private bool _scaleLoading;
+    private string _interfaceScalePreference = "Auto";
     private string _lastResult = string.Empty;
     private static readonly string[] Colours = ["#E9D8AE", "#A72222", "#235DA8", "#2C7A43", "#6D3B91", "#C28C24", "#222222", "#EFEFEF", "#168A91", "#B04470"];
 
@@ -26,11 +28,51 @@ public partial class DiceRollerWindow : Window
     {
         InitializeComponent();
         _pools = _store.LoadPools();
+        _interfaceScalePreference = _store.LoadInterfaceScale();
         BuildColourButtons();
         RefreshRecentHistory();
         RefreshPoolList();
         if (_pools.Count > 0) PoolList.SelectedIndex = 0;
+        SelectScalePreference();
+        Loaded += (_, _) => ApplyInterfaceScale();
+        SizeChanged += (_, _) => { if (_interfaceScalePreference == "Auto" && IsLoaded) ApplyInterfaceScale(); };
         Closed += (_, _) => _store.SavePools(_pools);
+    }
+
+    private void SelectScalePreference()
+    {
+        _scaleLoading = true;
+        try
+        {
+            for (var index = 0; index < ScaleBox.Items.Count; index++)
+                if (ScaleBox.Items[index] is ComboBoxItem item && string.Equals(item.Tag?.ToString(), _interfaceScalePreference, StringComparison.Ordinal))
+                { ScaleBox.SelectedIndex = index; return; }
+            ScaleBox.SelectedIndex = 0;
+        }
+        finally { _scaleLoading = false; }
+    }
+
+    private void ScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_scaleLoading || ScaleBox.SelectedItem is not ComboBoxItem item) return;
+        _interfaceScalePreference = item.Tag?.ToString() ?? "Auto";
+        _store.SaveInterfaceScale(_interfaceScalePreference);
+        ApplyInterfaceScale();
+    }
+
+    private void ApplyInterfaceScale()
+    {
+        var scale = 1d;
+        if (_interfaceScalePreference == "Auto")
+        {
+            const double designWidth = 1516;
+            const double designHeight = 936;
+            var availableWidth = Math.Max(1, LayoutScrollViewer.ActualWidth - 4);
+            var availableHeight = Math.Max(1, LayoutScrollViewer.ActualHeight - 4);
+            scale = Math.Clamp(Math.Min(availableWidth / designWidth, availableHeight / designHeight), 0.5, 1.0);
+        }
+        else if (!double.TryParse(_interfaceScalePreference, NumberStyles.Float, CultureInfo.InvariantCulture, out scale)) scale = 1d;
+        ScaleRoot.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
     private void RefreshPoolList(DicePool? select = null)
