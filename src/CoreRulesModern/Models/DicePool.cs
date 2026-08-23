@@ -1,0 +1,31 @@
+using System.Text.Json.Serialization;
+
+namespace CoreRulesModern.Models;
+
+public sealed class DicePool
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "New Pool";
+    public string CharacterName { get; set; } = string.Empty;
+    public DicePoolMode Mode { get; set; } = DicePoolMode.Generic;
+    public int Thac0 { get; set; } = 20;
+    public int OpponentAc { get; set; } = 10;
+    public int AttackModifier { get; set; }
+    public List<DieSpec> Dice { get; set; } = [new()];
+    [JsonIgnore] public string Summary => Dice.Count == 0 ? "No dice" : string.Join(" + ", Dice.GroupBy(d => new { d.Sides, d.Modifier }).Select(g => $"{g.Count()}d{g.Key.Sides}{(g.Key.Modifier > 0 ? $"+{g.Key.Modifier}" : g.Key.Modifier < 0 ? g.Key.Modifier.ToString() : string.Empty)}"));
+}
+
+public enum DicePoolMode { Generic, Attack, Damage }
+
+public sealed class DieSpec
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public int Sides { get; set; } = 20;
+    public int Modifier { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public string ColourHex { get; set; } = "#E9D8AE";
+    [JsonIgnore] public int LastResult { get; set; }
+    [JsonIgnore] public int DisplayResult { get; set; }
+}
+
+public sealed record DiceRollRecord(DateTime Timestamp, string PoolName, string CharacterName, string RequestText, string ResultText, int Total);
