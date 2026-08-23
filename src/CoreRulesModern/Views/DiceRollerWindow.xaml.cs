@@ -162,7 +162,7 @@ public partial class DiceRollerWindow : Window
         _store.SavePools(_pools);
         RenderTray();
         UpdatePoolHeader();
-        RefreshPoolList(_pool);
+        PoolList.Items.Refresh();
     }
 
     private void BuildColourButtons()
@@ -292,7 +292,7 @@ public partial class DiceRollerWindow : Window
         LoadDieControls();
         RenderTray();
         UpdatePoolHeader();
-        RefreshPoolList(_pool);
+        PoolList.Items.Refresh();
     }
 
     private void RemoveDie_Click(object sender, RoutedEventArgs e)
