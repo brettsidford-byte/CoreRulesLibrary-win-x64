@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using CoreRulesModern.Models;
 using CoreRulesModern.Services;
@@ -25,6 +26,7 @@ public partial class DiceRollerWindow : Window
         InitializeComponent();
         _pools = _store.LoadPools();
         BuildColourButtons();
+        RefreshRecentHistory();
         RefreshPoolList();
         if (_pools.Count > 0) PoolList.SelectedIndex = 0;
         Closed += (_, _) => _store.SavePools(_pools);
@@ -44,6 +46,8 @@ public partial class DiceRollerWindow : Window
         _pool = pool;
         _selectedDie = pool.Dice.FirstOrDefault();
         _lastResult = string.Empty;
+        LastRollEquation.Text = "No roll yet";
+        LastRollOutcome.Text = string.Empty;
         LoadPoolControls();
         RenderTray();
     }
@@ -62,6 +66,7 @@ public partial class DiceRollerWindow : Window
             AttackModifierBox.Text = _pool.AttackModifier.ToString(CultureInfo.InvariantCulture);
             PoolTitle.Text = _pool.Name;
             PoolSubtitle.Text = _pool.CharacterName;
+            PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
             AttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
             LoadDieControls();
         }
@@ -99,6 +104,7 @@ public partial class DiceRollerWindow : Window
         if (int.TryParse(AttackModifierBox.Text, out var attackMod)) _pool.AttackModifier = attackMod;
         PoolTitle.Text = _pool.Name;
         PoolSubtitle.Text = _pool.CharacterName;
+        PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
         AttackOptions.Visibility = _pool.Mode == DicePoolMode.Attack ? Visibility.Visible : Visibility.Collapsed;
         _store.SavePools(_pools);
         RefreshPoolList(_pool);
@@ -112,6 +118,7 @@ public partial class DiceRollerWindow : Window
         if (int.TryParse(DieModifierBox.Text, out var modifier)) _selectedDie.Modifier = modifier;
         _store.SavePools(_pools);
         RenderTray();
+        if (_pool is not null) PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
         RefreshPoolList(_pool);
     }
 
@@ -174,6 +181,7 @@ public partial class DiceRollerWindow : Window
         _store.SavePools(_pools);
         LoadDieControls();
         RenderTray();
+        PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
         RefreshPoolList(_pool);
     }
 
@@ -185,6 +193,7 @@ public partial class DiceRollerWindow : Window
         _store.SavePools(_pools);
         LoadDieControls();
         RenderTray();
+        PoolSummaryText.Text = $"{_pool.Mode}  •  {_pool.Summary}";
         RefreshPoolList(_pool);
     }
 
@@ -206,8 +215,34 @@ public partial class DiceRollerWindow : Window
         var request = BuildRequestText();
         _lastResult = BuildResultText(total);
         ResultText.Text = _lastResult;
+        PresentLastRoll(total);
         _store.AppendHistory(new DiceRollRecord(DateTime.Now, _pool.Name, _pool.CharacterName, request, _lastResult, total));
+        RefreshRecentHistory();
     }
+
+    private void PresentLastRoll(int total)
+    {
+        if (_pool is null) return;
+        if (_pool.Mode == DicePoolMode.Attack && _pool.Dice.Count > 0)
+        {
+            var d20 = _pool.Dice.FirstOrDefault(d => d.Sides == 20) ?? _pool.Dice[0];
+            var modifier = d20.Modifier + _pool.AttackModifier;
+            var attackTotal = d20.LastResult + modifier;
+            var hitAc = _pool.Thac0 - attackTotal;
+            var hit = d20.LastResult != 1 && (d20.LastResult == 20 || hitAc <= _pool.OpponentAc);
+            LastRollEquation.Text = $"{d20.LastResult} {FormatSignedTerm(modifier)} = {attackTotal}";
+            LastRollOutcome.Text = $"Hit AC {hitAc}  •  vs AC {_pool.OpponentAc}  —  {(d20.LastResult == 20 ? "CRITICAL" : hit ? "HIT" : "MISS")}";
+        }
+        else
+        {
+            LastRollEquation.Text = string.Join(" + ", _pool.Dice.Select(d => (d.LastResult + d.Modifier).ToString(CultureInfo.InvariantCulture))) + $" = {total}";
+            LastRollOutcome.Text = _pool.Mode == DicePoolMode.Damage ? "DAMAGE TOTAL" : "TOTAL";
+        }
+    }
+
+    private static string FormatSignedTerm(int value) => value >= 0 ? $"+ {value}" : $"− {Math.Abs(value)}";
+
+    private void RefreshRecentHistory() => RecentHistoryList.ItemsSource = _store.ReadRecentHistory(10);
 
     private string BuildRequestText()
     {
@@ -270,16 +305,17 @@ public partial class DiceRollerWindow : Window
     private FrameworkElement CreateDieVisual(DieSpec die)
     {
         const double size = 116;
-        var grid = new Grid { Width = size, Height = size + 28, Margin = new Thickness(10), Cursor = Cursors.Hand, ToolTip = "Click to edit this die" };
+        var grid = new Grid { Width = size, Height = size + 30, Margin = new Thickness(12), Cursor = Cursors.Hand, ToolTip = "Click to edit this die" };
         var polygon = new Polygon
         {
             Width = size, Height = size, Stretch = Stretch.Fill, Fill = BrushFromHex(die.ColourHex), Stroke = die == _selectedDie ? Brushes.Gold : Brushes.Black,
-            StrokeThickness = die == _selectedDie ? 4 : 2, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top,
-            Points = PointsFor(die.Sides)
+            StrokeThickness = die == _selectedDie ? 5 : 3, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top,
+            Points = PointsFor(die.Sides), Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 11, ShadowDepth = 6, Opacity = 0.75 }
         };
-        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = new FontFamily("Georgia"), FontSize = die.Sides == 100 ? 28 : 34, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 35, 0, 0) };
-        var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 130 };
-        grid.Children.Add(polygon); grid.Children.Add(number); grid.Children.Add(label);
+        var facet = new Polygon { Width = size - 18, Height = size - 18, Margin = new Thickness(9), Stretch = Stretch.Fill, Fill = Brushes.Transparent, Stroke = ContrastBrush(die.ColourHex), StrokeThickness = 1, Opacity = 0.28, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Points = PointsFor(die.Sides), IsHitTestVisible = false };
+        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = new FontFamily("Georgia"), FontSize = die.Sides == 100 ? 31 : 40, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 32, 0, 0), IsHitTestVisible = false };
+        var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 135, Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 1 }, IsHitTestVisible = false };
+        grid.Children.Add(polygon); grid.Children.Add(facet); grid.Children.Add(number); grid.Children.Add(label);
         return grid;
     }
 
