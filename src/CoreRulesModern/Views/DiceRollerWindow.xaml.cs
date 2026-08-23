@@ -432,28 +432,32 @@ public partial class DiceRollerWindow : Window
         if (_pool is null) return;
         if (_pool.Dice.Any(d => d.Quantity > 1))
         {
+            LastRollEquation.TextAlignment = TextAlignment.Center;
+            LastRollEquation.TextWrapping = TextWrapping.Wrap;
             LastRollEquation.FontSize = CompactResultFontSize(_pool.Dice.Sum(d => Math.Max(1, d.Quantity)));
             LastRollEquation.Text = string.Join(Environment.NewLine, _pool.Dice.Select(BuildCompactResults));
             LastRollOutcome.Text = string.Empty;
             return;
         }
-        LastRollEquation.FontSize = 27;
         if (_pool.Mode == DicePoolMode.Attack && _pool.Dice.Count > 0)
         {
-            LastRollEquation.Text = string.Join(Environment.NewLine, _pool.Dice.Select(die =>
-            {
-                var attackTotal = die.LastResult + die.Modifier + die.AttackBonus;
-                return $"{AttackName(die)}: {die.LastResult} {FormatSignedTerm(die.Modifier + die.AttackBonus)} = {attackTotal}";
-            }));
-            LastRollOutcome.Text = string.Join(Environment.NewLine, _pool.Dice.Select(die =>
+            LastRollEquation.FontSize = 14;
+            LastRollEquation.TextAlignment = TextAlignment.Left;
+            LastRollEquation.TextWrapping = TextWrapping.NoWrap;
+            LastRollEquation.Text = string.Join(Environment.NewLine + Environment.NewLine, _pool.Dice.Select(die =>
             {
                 var attackTotal = die.LastResult + die.Modifier + die.AttackBonus;
                 var hitAc = die.Thac0 - attackTotal;
-                return $"Hit AC {hitAc}  •  vs AC {_pool.OpponentAc}  —  {AttackOutcome(die, hitAc)}";
+                return $"{AttackName(die)}: {die.LastResult} {FormatSignedTerm(die.Modifier + die.AttackBonus)} = {attackTotal}" + Environment.NewLine
+                    + $"THAC0 {die.Thac0} · Hit AC {hitAc} · AC {_pool.OpponentAc} — {AttackOutcome(die, hitAc)}";
             }));
+            LastRollOutcome.Text = string.Empty;
         }
         else
         {
+            LastRollEquation.FontSize = 27;
+            LastRollEquation.TextAlignment = TextAlignment.Center;
+            LastRollEquation.TextWrapping = TextWrapping.Wrap;
             LastRollEquation.Text = string.Join(" + ", _pool.Dice.Select(d => (d.LastResult + d.Modifier).ToString(CultureInfo.InvariantCulture))) + $" = {total}";
             LastRollOutcome.Text = _pool.Mode == DicePoolMode.Damage ? "DAMAGE TOTAL" : "TOTAL";
         }
