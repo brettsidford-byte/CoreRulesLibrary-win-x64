@@ -7,6 +7,7 @@ public sealed class DicePool
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "New Pool";
     public string CharacterName { get; set; } = string.Empty;
+    public string CharacterColourHex { get; set; } = "#24170E";
     public DicePoolMode Mode { get; set; } = DicePoolMode.Generic;
     public int OpponentAc { get; set; } = 10;
     [JsonPropertyName("Thac0"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public int? LegacyThac0 { get; set; }

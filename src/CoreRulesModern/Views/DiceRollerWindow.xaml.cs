@@ -24,6 +24,7 @@ public partial class DiceRollerWindow : Window
     private string _lastResult = string.Empty;
     private bool _editingSecondaryColour;
     private Border? _colourSample;
+    private List<DieSpec>? _rollingBatch;
     private static readonly string[] Colours = ["#E9D8AE", "#A72222", "#235DA8", "#2C7A43", "#6D3B91", "#C28C24", "#222222", "#EFEFEF", "#168A91", "#B04470"];
 
     public DiceRollerWindow()
@@ -87,6 +88,7 @@ public partial class DiceRollerWindow : Window
     {
         if (PoolList.SelectedItem is not DicePool pool) return;
         _pool = pool;
+        _rollingBatch = null;
         _selectedDie = pool.Dice.FirstOrDefault();
         _lastResult = string.Empty;
         LastRollEquation.Text = "No roll yet";
@@ -103,6 +105,8 @@ public partial class DiceRollerWindow : Window
         {
             NameBox.Text = _pool.Name;
             CharacterBox.Text = _pool.CharacterName;
+            CharacterColourBox.SelectedIndex = Enumerable.Range(0, CharacterColourBox.Items.Count)
+                .FirstOrDefault(i => CharacterColourBox.Items[i] is ComboBoxItem item && string.Equals(item.Tag?.ToString(), _pool.CharacterColourHex, StringComparison.OrdinalIgnoreCase));
             ModeBox.SelectedIndex = (int)_pool.Mode;
             AcBox.Text = _pool.OpponentAc.ToString(CultureInfo.InvariantCulture);
             UpdatePoolHeader();
@@ -146,6 +150,7 @@ public partial class DiceRollerWindow : Window
         if (_loading || _pool is null) return;
         _pool.Name = string.IsNullOrWhiteSpace(NameBox.Text) ? "Unnamed Pool" : NameBox.Text.Trim();
         _pool.CharacterName = CharacterBox.Text.Trim();
+        if (CharacterColourBox.SelectedItem is ComboBoxItem colourItem) _pool.CharacterColourHex = colourItem.Tag?.ToString() ?? "#24170E";
         if (ModeBox.SelectedIndex >= 0) _pool.Mode = (DicePoolMode)ModeBox.SelectedIndex;
         if (int.TryParse(AcBox.Text, out var ac)) _pool.OpponentAc = ac;
         UpdatePoolHeader();
@@ -159,6 +164,7 @@ public partial class DiceRollerWindow : Window
     private void DieField_Changed(object sender, EventArgs e)
     {
         if (_loading || _selectedDie is null) return;
+        _rollingBatch = null;
         if (DieTypeBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out var sides)) _selectedDie.Sides = sides;
         if (int.TryParse(DieQuantityBox.Text, out var quantity)) _selectedDie.Quantity = Math.Clamp(quantity, 1, 100);
         _selectedDie.Label = DieLabelBox.Text.Trim();
@@ -283,7 +289,7 @@ public partial class DiceRollerWindow : Window
         if (_pool is null) return;
         var copy = new DicePool
         {
-            Name = _pool.Name + " Copy", CharacterName = _pool.CharacterName, Mode = _pool.Mode,
+            Name = _pool.Name + " Copy", CharacterName = _pool.CharacterName, CharacterColourHex = _pool.CharacterColourHex, Mode = _pool.Mode,
             OpponentAc = _pool.OpponentAc,
             Dice = _pool.Dice.Select(d => new DieSpec { Sides = d.Sides, Quantity = d.Quantity, Modifier = d.Modifier, Thac0 = d.Thac0, AttackBonus = d.AttackBonus, Label = d.Label, ColourHex = d.ColourHex, SecondaryColourHex = d.SecondaryColourHex }).ToList()
         };
@@ -306,6 +312,7 @@ public partial class DiceRollerWindow : Window
     private void AddDie(int sides)
     {
         if (_pool is null) return;
+        _rollingBatch = null;
         var source = _selectedDie;
         var die = new DieSpec { Sides = sides, ColourHex = source?.ColourHex ?? "#A72222", SecondaryColourHex = source?.SecondaryColourHex ?? "#292421", Thac0 = source?.Thac0 ?? 20, AttackBonus = source?.AttackBonus ?? 0 };
         _pool.Dice.Add(die);
@@ -320,6 +327,7 @@ public partial class DiceRollerWindow : Window
     private void RemoveDie_Click(object sender, RoutedEventArgs e)
     {
         if (_pool is null || _selectedDie is null || _pool.Dice.Count <= 1) return;
+        _rollingBatch = null;
         _pool.Dice.Remove(_selectedDie);
         _selectedDie = _pool.Dice.FirstOrDefault();
         _store.SavePools(_pools);
@@ -332,29 +340,48 @@ public partial class DiceRollerWindow : Window
     private async void Roll_Click(object sender, RoutedEventArgs e)
     {
         if (_pool is null || _pool.Dice.Count == 0) return;
-        foreach (var die in _pool.Dice)
-        {
-            die.LastResults = Enumerable.Range(0, Math.Clamp(die.Quantity, 1, 100)).Select(_ => _store.Roll(die.Sides)).ToList();
-            die.LastResult = die.LastResults[0];
-        }
-
-        for (var frame = 0; frame < 7; frame++)
-        {
-            foreach (var die in _pool.Dice) die.DisplayResult = _store.Roll(die.Sides);
-            RenderTray();
-            await Task.Delay(70 + frame * 8);
-        }
-        foreach (var die in _pool.Dice) die.DisplayResult = die.LastResult;
-        RenderTray();
-
-        var total = _pool.Dice.Sum(d => d.LastResults.Count > 0 ? d.LastResults.Sum(r => r + d.Modifier) : d.LastResult + d.Modifier);
         var request = BuildRequestText();
+        foreach (var die in _pool.Dice) { die.LastResults.Clear(); die.LastResult = 0; die.DisplayResult = 0; }
+        var pending = _pool.Dice.SelectMany(die => Enumerable.Repeat(die, Math.Clamp(die.Quantity, 1, 100))).ToList();
+        for (var offset = 0; offset < pending.Count; offset += 8)
+        {
+            var owners = pending.Skip(offset).Take(8).ToList();
+            _rollingBatch = owners.Select(CloneForTray).ToList();
+            for (var frame = 0; frame < 7; frame++)
+            {
+                foreach (var die in _rollingBatch) die.DisplayResult = _store.Roll(die.Sides);
+                RenderTray();
+                await Task.Delay(70 + frame * 8);
+            }
+            for (var index = 0; index < owners.Count; index++)
+            {
+                var result = _store.Roll(owners[index].Sides);
+                owners[index].LastResults.Add(result);
+                owners[index].LastResult = result;
+                _rollingBatch[index].LastResult = result;
+                _rollingBatch[index].DisplayResult = result;
+            }
+            RenderTray();
+            var partialTotal = _pool.Dice.Sum(d => d.LastResults.Sum(r => r + d.Modifier));
+            _lastResult = BuildResultText(partialTotal);
+            ResultText.Text = _lastResult;
+            PresentLastRoll(partialTotal);
+            if (offset + 8 < pending.Count) await Task.Delay(380);
+        }
+        var total = _pool.Dice.Sum(d => d.LastResults.Sum(r => r + d.Modifier));
         _lastResult = BuildResultText(total);
         ResultText.Text = _lastResult;
         PresentLastRoll(total);
         _store.AppendHistory(new DiceRollRecord(DateTime.Now, _pool.Name, _pool.CharacterName, request, _lastResult, total));
         RefreshRecentHistory();
     }
+
+    private static DieSpec CloneForTray(DieSpec die) => new()
+    {
+        Sides = die.Sides, Quantity = 1, Modifier = die.Modifier, Thac0 = die.Thac0,
+        AttackBonus = die.AttackBonus, Label = die.Label, ColourHex = die.ColourHex,
+        SecondaryColourHex = die.SecondaryColourHex
+    };
 
     private void PresentLastRoll(int total)
     {
@@ -464,6 +491,11 @@ public partial class DiceRollerWindow : Window
     {
         TrayPanel.Children.Clear();
         if (_pool is null) return;
+        if (_rollingBatch is not null)
+        {
+            foreach (var die in _rollingBatch) TrayPanel.Children.Add(CreateDieVisual(die, size: 82));
+            return;
+        }
         foreach (var die in _pool.Dice)
         {
             var visual = CreateDieVisual(die);
