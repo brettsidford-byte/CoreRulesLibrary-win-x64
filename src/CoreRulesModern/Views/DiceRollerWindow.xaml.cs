@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
-using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -28,7 +27,6 @@ public partial class DiceRollerWindow : Window
         InitializeComponent();
         _pools = _store.LoadPools();
         BuildColourButtons();
-        BuildAddDieButtons();
         RefreshRecentHistory();
         RefreshPoolList();
         if (_pools.Count > 0) PoolList.SelectedIndex = 0;
@@ -193,24 +191,19 @@ public partial class DiceRollerWindow : Window
         catch { return false; }
     }
 
-    private void BuildAddDieButtons()
+    private void AddDie_Click(object sender, RoutedEventArgs e)
     {
-        foreach (var sides in new[] { 4, 6, 8, 10, 12, 20, 100 })
-        {
-            var preview = new DieSpec { Sides = sides, ColourHex = "#D8C38E" };
-            var visual = CreateDieVisual(preview, showNumber: false, size: 68);
-            visual.Margin = new Thickness(1);
-            visual.Margin = new Thickness(0);
-            var button = new Button
-            {
-                Content = visual,
-                Style = (Style)FindResource("DieFaceButton"),
-                ToolTip = $"Add a d{sides}"
-            };
-            AutomationProperties.SetName(button, $"Add d{sides}");
-            button.Click += (_, _) => AddDie(sides);
-            AddDiePanel.Children.Add(button);
-        }
+        var choices = new ComboBox { Margin = new Thickness(0, 12, 0, 16), FontSize = 18, HorizontalContentAlignment = HorizontalAlignment.Center };
+        foreach (var sides in new[] { 4, 6, 8, 10, 12, 20, 100 }) choices.Items.Add(new ComboBoxItem { Content = $"d{sides}", Tag = sides });
+        choices.SelectedIndex = 5;
+        var confirm = new Button { Content = "ADD DIE", Style = (Style)FindResource("AntiqueButton"), FontSize = 17, Padding = new Thickness(28, 9, 28, 9), HorizontalAlignment = HorizontalAlignment.Center };
+        var panel = new StackPanel { Margin = new Thickness(22) };
+        panel.Children.Add(new TextBlock { Text = "CHOOSE DIE TYPE", FontFamily = new FontFamily("ITC Korinna"), FontSize = 20, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center });
+        panel.Children.Add(choices);
+        panel.Children.Add(confirm);
+        var dialog = new Window { Title = "Add Die", Width = 310, Height = 225, ResizeMode = ResizeMode.NoResize, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = (Brush)FindResource("ParchmentBrush"), Content = panel };
+        confirm.Click += (_, _) => dialog.DialogResult = true;
+        if (dialog.ShowDialog() == true && choices.SelectedItem is ComboBoxItem choice && choice.Tag is int selectedSides) AddDie(selectedSides);
     }
 
     private void NewPool_Click(object sender, RoutedEventArgs e)
