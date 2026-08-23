@@ -59,7 +59,7 @@
    </Grid></Border>
 
    <!-- Expanded selected die editor and single add action -->
-   <Border Grid.Row="2" Background="{StaticResource ParchmentBrush}" BorderBrush="#29170E" BorderThickness="4" Padding="9" Effect="{StaticResource PanelShadow}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
+   <Border Grid.Row="2" Background="{StaticResource ParchmentBrush}" BorderBrush="#29170E" BorderThickness="4" Padding="9" Effect="{StaticResource PanelShadow}"><Grid>
     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
      <Grid><TextBlock Text="SELECTED DIE" Style="{StaticResource PanelHeader}" Padding="18,4"/><Button Style="{StaticResource AntiqueButton}" Content="REMOVE" HorizontalAlignment="Right" VerticalAlignment="Center" Click="RemoveDie_Click" Margin="0,0,8,7"/></Grid>
      <Grid Grid.Row="1" Margin="10,0"><Grid.ColumnDefinitions><ColumnDefinition Width="105"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -70,7 +70,6 @@
       <TextBlock Grid.Row="4" Text="Colour" Style="{StaticResource FieldLabel}"/><WrapPanel x:Name="ColourPanel" Grid.Row="4" Grid.Column="1" Margin="2"/>
      </Grid>
     </Grid>
-    <Border Grid.Column="2" BorderBrush="#8C642E" BorderThickness="1,0,0,0" Padding="12,0,0,0"><Button x:Name="AddDieButton" Content="+  ADD DIE" Click="AddDie_Click" Style="{StaticResource AntiqueButton}" FontSize="19" Padding="22,32" HorizontalAlignment="Stretch" VerticalAlignment="Center"/></Border>
    </Grid></Border>
   </Grid>
 
@@ -81,6 +80,7 @@
     <TextBlock Grid.Row="1" Text="PC / NPC" Style="{StaticResource FieldLabel}"/><TextBox x:Name="CharacterBox" Grid.Row="1" Grid.Column="1" TextChanged="PoolField_Changed" Margin="2"/>
     <TextBlock Grid.Row="2" Text="Pool type" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="ModeBox" Grid.Row="2" Grid.Column="1" SelectionChanged="PoolField_Changed" Margin="2"><ComboBoxItem Content="Generic"/><ComboBoxItem Content="Attack"/><ComboBoxItem Content="Damage"/></ComboBox>
    </Grid><GroupBox x:Name="AttackOptions" Header="Attack target" Margin="0,8,0,0" Foreground="{StaticResource Ink}" BorderBrush="#8A632E"><Grid Margin="8"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="72"/></Grid.ColumnDefinitions><TextBlock Text="Opponent AC" Style="{StaticResource FieldLabel}"/><TextBox x:Name="AcBox" Grid.Column="1" TextChanged="PoolField_Changed" Margin="2"/></Grid></GroupBox>
+   <Button x:Name="AddDieButton" Content="+  ADD DIE" Click="AddDie_Click" Style="{StaticResource AntiqueButton}" HorizontalAlignment="Stretch" Margin="3,10,3,0" Padding="10,8" FontSize="15" ToolTip="Add another die to this pool"/>
    </StackPanel>
    <Border Grid.Row="2" BorderBrush="#8A632E" BorderThickness="1" Padding="12"><Border.Background><ImageBrush ImageSource="/CoreRulesLibrary;component/Assets/DiceRoller/ParchmentCard9Slice.png" Stretch="Fill"/></Border.Background><StackPanel><TextBlock Text="LAST ROLL" Style="{StaticResource PanelHeader}"/><TextBlock x:Name="LastRollEquation" Text="No roll yet" FontFamily="ITC Korinna" FontSize="27" FontWeight="Bold" Foreground="{StaticResource Ink}" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock x:Name="LastRollOutcome" Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Foreground="#6F1717" TextAlignment="Center" TextWrapping="Wrap"/><TextBlock x:Name="ResultText" Visibility="Collapsed"/></StackPanel></Border>
    <Grid Grid.Row="4"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><TextBlock Text="ROLL HISTORY" Style="{StaticResource PanelHeader}"/><ListBox x:Name="RecentHistoryList" Grid.Row="1" Background="Transparent" BorderThickness="0" IsHitTestVisible="False" ScrollViewer.VerticalScrollBarVisibility="Auto"><ListBox.ItemTemplate><DataTemplate><Border BorderBrush="#A27B43" BorderThickness="0,0,0,1" Padding="3,7"><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Ink}"/></Border></DataTemplate></ListBox.ItemTemplate></ListBox><Button Grid.Row="2" Style="{StaticResource AntiqueButton}" Content="FULL HISTORY…" HorizontalAlignment="Right" Margin="0,7,0,0" Click="History_Click"/></Grid>
