@@ -26,26 +26,38 @@ public sealed class DiceRollerStore
 
     public void SavePools(IEnumerable<DicePool> pools)
     {
-        Directory.CreateDirectory(_folder);
-        File.WriteAllText(PoolsPath, JsonSerializer.Serialize(pools, new JsonSerializerOptions { WriteIndented = true }));
+        try
+        {
+            Directory.CreateDirectory(_folder);
+            File.WriteAllText(PoolsPath, JsonSerializer.Serialize(pools, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
     }
 
     public int Roll(int sides) => RandomNumberGenerator.GetInt32(1, Math.Max(2, sides) + 1);
 
     public void AppendHistory(DiceRollRecord record)
     {
-        Directory.CreateDirectory(_folder);
-        var sb = new StringBuilder();
-        sb.AppendLine($"[{record.Timestamp:dd MMMM yyyy HH:mm:ss}]");
-        sb.AppendLine($"Pool: {record.PoolName}");
-        if (!string.IsNullOrWhiteSpace(record.CharacterName)) sb.AppendLine($"PC/NPC: {record.CharacterName}");
-        sb.AppendLine($"Request: {record.RequestText}");
-        sb.AppendLine($"Result: {record.ResultText}");
-        sb.AppendLine();
-        File.AppendAllText(HistoryPath, sb.ToString());
+        try
+        {
+            Directory.CreateDirectory(_folder);
+            var sb = new StringBuilder();
+            sb.AppendLine($"[{record.Timestamp:dd MMMM yyyy HH:mm:ss}]");
+            sb.AppendLine($"Pool: {record.PoolName}");
+            if (!string.IsNullOrWhiteSpace(record.CharacterName)) sb.AppendLine($"PC/NPC: {record.CharacterName}");
+            sb.AppendLine($"Request: {record.RequestText}");
+            sb.AppendLine($"Result: {record.ResultText}");
+            sb.AppendLine();
+            File.AppendAllText(HistoryPath, sb.ToString());
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
     }
 
-    public string ReadHistory() => File.Exists(HistoryPath) ? File.ReadAllText(HistoryPath) : "No rolls have been recorded yet.";
+    public string ReadHistory()
+    {
+        try { return File.Exists(HistoryPath) ? File.ReadAllText(HistoryPath) : "No rolls have been recorded yet."; }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { return "Roll history is currently unavailable."; }
+    }
 
     public IReadOnlyList<string> ReadRecentHistory(int count)
     {
