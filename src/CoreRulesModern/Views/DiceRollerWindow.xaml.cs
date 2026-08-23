@@ -26,8 +26,12 @@ public partial class DiceRollerWindow : Window
     private string _lastResult = string.Empty;
     private bool _editingSecondaryColour;
     private Border? _colourSample;
+    private Button? _primaryColourButton;
+    private Button? _secondaryColourButton;
     private List<DieSpec>? _rollingBatch;
     private static readonly string[] Colours = ["#E9D8AE", "#A72222", "#235DA8", "#2C7A43", "#6D3B91", "#C28C24", "#222222", "#EFEFEF", "#168A91", "#B04470"];
+    private const int TrayBatchCapacity = 21;
+    private static readonly FontFamily DiceNumeralFont = LoadDiceNumeralFont();
     private readonly int[] _customColours = new int[16];
 
     public DiceRollerWindow()
@@ -188,6 +192,7 @@ public partial class DiceRollerWindow : Window
         primary.Click += (_, _) => { _editingSecondaryColour = false; RefreshColourSample(); };
         var secondary = new Button { Content = "2", Width = 25, Height = 22, Margin = new Thickness(1), ToolTip = "Edit the speckle colour" };
         secondary.Click += (_, _) => { _editingSecondaryColour = true; RefreshColourSample(); };
+        _primaryColourButton = primary; _secondaryColourButton = secondary;
         ColourPanel.Children.Add(primary); ColourPanel.Children.Add(secondary);
         var customButton = new Button { Content = "CUSTOM…", Style = (Style)FindResource("AntiqueButton"), Padding = new Thickness(7, 4, 7, 4), ToolTip = "Choose any colour using a hex value" };
         customButton.Click += CustomColour_Click;
@@ -212,6 +217,20 @@ public partial class DiceRollerWindow : Window
     private void RefreshColourSample()
     {
         if (_colourSample is null || _selectedDie is null) return;
+        if (_primaryColourButton is not null)
+        {
+            _primaryColourButton.Background = BrushFromHex(_selectedDie.ColourHex);
+            _primaryColourButton.Foreground = ContrastBrush(_selectedDie.ColourHex);
+            _primaryColourButton.BorderBrush = _editingSecondaryColour ? Brushes.Black : Brushes.Gold;
+            _primaryColourButton.BorderThickness = new Thickness(_editingSecondaryColour ? 1 : 3);
+        }
+        if (_secondaryColourButton is not null)
+        {
+            _secondaryColourButton.Background = BrushFromHex(_selectedDie.SecondaryColourHex);
+            _secondaryColourButton.Foreground = ContrastBrush(_selectedDie.SecondaryColourHex);
+            _secondaryColourButton.BorderBrush = _editingSecondaryColour ? Brushes.Gold : Brushes.Black;
+            _secondaryColourButton.BorderThickness = new Thickness(_editingSecondaryColour ? 3 : 1);
+        }
         _colourSample.Background = CreateSpeckleBrush(_selectedDie.ColourHex, _selectedDie.SecondaryColourHex);
         _colourSample.BorderBrush = _editingSecondaryColour ? Brushes.Gold : Brushes.Black;
     }
@@ -387,9 +406,9 @@ public partial class DiceRollerWindow : Window
         var request = BuildRequestText();
         foreach (var die in _pool.Dice) { die.LastResults.Clear(); die.LastResult = 0; die.DisplayResult = 0; }
         var pending = _pool.Dice.SelectMany(die => Enumerable.Repeat(die, Math.Clamp(die.Quantity, 1, 100))).ToList();
-        for (var offset = 0; offset < pending.Count; offset += 8)
+        for (var offset = 0; offset < pending.Count; offset += TrayBatchCapacity)
         {
-            var owners = pending.Skip(offset).Take(8).ToList();
+            var owners = pending.Skip(offset).Take(TrayBatchCapacity).ToList();
             _rollingBatch = owners.Select(CloneForTray).ToList();
             for (var frame = 0; frame < 7; frame++)
             {
@@ -410,7 +429,7 @@ public partial class DiceRollerWindow : Window
             _lastResult = BuildResultText(partialTotal);
             ResultText.Text = _lastResult;
             PresentLastRoll(partialTotal);
-            if (offset + 8 < pending.Count) await Task.Delay(380);
+            if (offset + TrayBatchCapacity < pending.Count) await Task.Delay(380);
         }
         var total = _pool.Dice.Sum(d => d.LastResults.Sum(r => r + d.Modifier));
         _lastResult = BuildResultText(total);
@@ -577,10 +596,10 @@ public partial class DiceRollerWindow : Window
         var numeralTop = die.Sides switch { 4 => .37, 8 => .25, 10 => .24, 12 => .30, 20 => .38, 100 => .35, _ => .40 };
         var numeralSize = die.Sides switch { 4 => .35, 6 => .35, 100 => .22, _ => .285 };
         var numeralX = die.Sides == 12 ? size * -.035 : 0;
-        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = new FontFamily("Georgia"), FontSize = size * numeralSize, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, size * numeralTop, 0, 0), RenderTransform = new TranslateTransform(numeralX, 0), Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.55 }, IsHitTestVisible = false };
+        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = DiceNumeralFont, FontSize = size * numeralSize, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, size * numeralTop, 0, 0), RenderTransform = new TranslateTransform(numeralX, 0), Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.55 }, IsHitTestVisible = false };
         var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, FontSize = Math.Max(11, size * .095), FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = size, Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 1 }, IsHitTestVisible = false };
         grid.Children.Add(colourLayer); grid.Children.Add(speckleLayer); grid.Children.Add(face);
-        if (die.Quantity > 1) grid.Children.Add(new TextBlock { Text = $"{die.Quantity}×", FontFamily = new FontFamily("Georgia"), FontSize = size * .19, FontWeight = FontWeights.Bold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(2, 4, 0, 0), Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 4, ShadowDepth = 2, Opacity = 1 }, IsHitTestVisible = false });
+        if (die.Quantity > 1) grid.Children.Add(new TextBlock { Text = $"{die.Quantity}×", FontFamily = DiceNumeralFont, FontSize = size * .19, FontWeight = FontWeights.Bold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(2, 4, 0, 0), Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 4, ShadowDepth = 2, Opacity = 1 }, IsHitTestVisible = false });
         if (showNumber) grid.Children.Add(number);
         grid.Children.Add(label);
         return grid;
@@ -607,6 +626,18 @@ public partial class DiceRollerWindow : Window
     {
         try { return (Brush)new BrushConverter().ConvertFromString(hex)!; }
         catch { return Brushes.Beige; }
+    }
+
+    private static FontFamily LoadDiceNumeralFont()
+    {
+        var fontPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts", "bookantiqua_bold.ttf");
+        var fontFolder = System.IO.Path.GetDirectoryName(fontPath);
+        if (fontFolder is not null && System.IO.File.Exists(fontPath))
+        {
+            try { return new FontFamily(new Uri(fontFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar) + System.IO.Path.DirectorySeparatorChar), "./#Book Antiqua"); }
+            catch (ArgumentException) { }
+        }
+        return new FontFamily("Book Antiqua");
     }
 
     private static Brush CreateSpeckleBrush(string baseHex, string speckleHex)
