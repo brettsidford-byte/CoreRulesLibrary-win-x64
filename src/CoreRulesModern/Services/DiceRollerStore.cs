@@ -46,7 +46,7 @@ public sealed class DiceRollerStore
         try
         {
             var value = File.Exists(InterfaceScalePath) ? File.ReadAllText(InterfaceScalePath).Trim() : "Auto";
-            return value is "Auto" or "0.6" or "0.7" or "0.8" or "0.9" or "1" or "1.1" or "1.25" ? value : "Auto";
+            return value is "Auto" or "0.6" or "0.7" or "0.8" or "0.9" or "1" or "1.1" or "1.25" or "1.5" or "1.75" ? value : "Auto";
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { return "Auto"; }
     }
