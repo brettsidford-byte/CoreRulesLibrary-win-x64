@@ -123,9 +123,12 @@ public partial class DiceRollerWindow : Window
 
     private void BuildColourButtons()
     {
+        var customButton = new Button { Content = "CUSTOM…", Style = (Style)FindResource("AntiqueButton"), Padding = new Thickness(7, 4, 7, 4), ToolTip = "Choose any colour using a hex value" };
+        customButton.Click += CustomColour_Click;
+        ColourPanel.Children.Add(customButton);
         foreach (var hex in Colours)
         {
-            var button = new Button { Width = 30, Height = 30, Margin = new Thickness(3), Tag = hex, Background = BrushFromHex(hex), ToolTip = hex };
+            var button = new Button { Width = 22, Height = 22, Margin = new Thickness(1), Tag = hex, Background = BrushFromHex(hex), ToolTip = hex };
             button.Click += (_, _) =>
             {
                 if (_selectedDie is null) return;
@@ -135,6 +138,55 @@ public partial class DiceRollerWindow : Window
             };
             ColourPanel.Children.Add(button);
         }
+    }
+
+    private void DieModifierDown_Click(object sender, RoutedEventArgs e) => SetDieModifier(ReadSignedValue(DieModifierBox.Text) - 1);
+    private void DieModifierUp_Click(object sender, RoutedEventArgs e) => SetDieModifier(ReadSignedValue(DieModifierBox.Text) + 1);
+    private void AttackModifierDown_Click(object sender, RoutedEventArgs e) => SetAttackModifier(ReadSignedValue(AttackModifierBox.Text) - 1);
+    private void AttackModifierUp_Click(object sender, RoutedEventArgs e) => SetAttackModifier(ReadSignedValue(AttackModifierBox.Text) + 1);
+
+    private static int ReadSignedValue(string text) => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : 0;
+
+    private void SetDieModifier(int value)
+    {
+        if (_selectedDie is null) return;
+        DieModifierBox.Text = value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private void SetAttackModifier(int value)
+    {
+        if (_pool is null) return;
+        AttackModifierBox.Text = value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private void CustomColour_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedDie is null) return;
+        var input = new TextBox { Text = _selectedDie.ColourHex, Margin = new Thickness(0, 8, 0, 8), FontSize = 18, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var preview = new Border { Height = 52, Background = BrushFromHex(_selectedDie.ColourHex), BorderBrush = Brushes.Black, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4), Margin = new Thickness(0, 0, 0, 10) };
+        var apply = new Button { Content = "APPLY COLOUR", Style = (Style)FindResource("AntiqueButton"), HorizontalAlignment = HorizontalAlignment.Right };
+        var panel = new StackPanel { Margin = new Thickness(18) };
+        panel.Children.Add(new TextBlock { Text = "CUSTOM DIE COLOUR", FontFamily = new FontFamily("ITC Korinna"), FontSize = 19, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center });
+        panel.Children.Add(new TextBlock { Text = "Enter a six-digit hex colour, for example #7A3DB8.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 0) });
+        panel.Children.Add(input); panel.Children.Add(preview); panel.Children.Add(apply);
+        var dialog = new Window { Title = "Custom Die Colour", Width = 360, Height = 260, ResizeMode = ResizeMode.NoResize, Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner, Background = (Brush)FindResource("ParchmentBrush"), Content = panel };
+        input.TextChanged += (_, _) => { if (TryNormaliseColour(input.Text, out var hex)) preview.Background = BrushFromHex(hex); };
+        apply.Click += (_, _) =>
+        {
+            if (!TryNormaliseColour(input.Text, out var hex)) { MessageBox.Show(dialog, "Enter a valid colour in the form #RRGGBB.", "Invalid colour", MessageBoxButton.OK, MessageBoxImage.Information); return; }
+            _selectedDie.ColourHex = hex;
+            dialog.DialogResult = true;
+        };
+        if (dialog.ShowDialog() == true) { _store.SavePools(_pools); RenderTray(); }
+    }
+
+    private static bool TryNormaliseColour(string text, out string hex)
+    {
+        hex = text.Trim();
+        if (!hex.StartsWith('#')) hex = "#" + hex;
+        if (hex.Length != 7) return false;
+        try { _ = (Color)ColorConverter.ConvertFromString(hex)!; return true; }
+        catch { return false; }
     }
 
     private void BuildAddDieButtons()
