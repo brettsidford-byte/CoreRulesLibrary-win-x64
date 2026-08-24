@@ -52,6 +52,7 @@ public partial class MainWindow : Window
     private ContextPanelMode _contextPanelMode;
     private SpellRecord? _displayedMainSpell;
     private SpellRecord? _previewedSpell;
+    private string? _documentBootstrapScriptId;
 
     private bool UseLegacyDocumentBrowser =>
         _selectedDocument?.Kind == HtmlDocumentKind.Book &&
@@ -598,6 +599,8 @@ public partial class MainWindow : Window
                 DocumentBrowser.Visibility = Visibility.Visible;
                 await DocumentBrowser.EnsureCoreWebView2Async();
                 HardenWebView(DocumentBrowser.CoreWebView2);
+                DocumentBrowser.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0xF5, 0xE8, 0xC8);
+                await EnsureDocumentBootstrapStyleAsync();
                 ApplyDocumentScale();
                 DocumentBrowser.Source = address;
                 FooterStatus.Text = $"Displaying {document.Title} · WebView2 · read-only";
@@ -838,7 +841,11 @@ public partial class MainWindow : Window
         object? sender,
         CoreWebView2NavigationCompletedEventArgs e)
     {
-        if (!e.IsSuccess) return;
+        if (!e.IsSuccess)
+        {
+            DocumentBrowser.Visibility = Visibility.Visible;
+            return;
+        }
         if (DocumentBrowser.Source is { IsFile: true } source)
         {
             var pageIndex = FindDocumentPageIndex(source.LocalPath);
@@ -848,6 +855,7 @@ public partial class MainWindow : Window
         UpdateSequenceNavigationButtons();
         ApplyDocumentScale();
         await ApplyDocumentStyleAsync();
+        DocumentBrowser.Visibility = Visibility.Visible;
         if (DocumentBrowser.Source is { IsFile: true } currentSource)
         {
             var title = await ReadWebView2PageTitleAsync();
@@ -862,10 +870,37 @@ public partial class MainWindow : Window
     {
         if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var address) &&
             BrowserSecurityPolicy.IsLocalPageWithin(address,
-                [_settings.LibraryPath, _settings.CharacterSheetsPath])) return;
+                [_settings.LibraryPath, _settings.CharacterSheetsPath]))
+        {
+            // Keep the parchment-backed WPF host visible while WebView2 builds and
+            // styles the next document. Revealing the raw legacy HTML here causes
+            // the white frame seen between Ravenloft pages.
+            DocumentBrowser.Visibility = Visibility.Hidden;
+            return;
+        }
 
         e.Cancel = true;
         FooterStatus.Text = "Blocked navigation outside the selected local library.";
+    }
+
+    private async Task EnsureDocumentBootstrapStyleAsync()
+    {
+        var webView = DocumentBrowser.CoreWebView2;
+        if (webView is null || _documentBootstrapScriptId is not null) return;
+
+        var bootstrapCss = "html,body{background-color:#f5e8c8!important;background-image:" +
+                           CreateParchmentBackgroundImage() +
+                           "!important;background-repeat:repeat!important;background-size:768px 768px!important;}";
+        var script = "(()=>{" +
+                     "const root=document.documentElement;" +
+                     "if(!root)return;" +
+                     "root.style.setProperty('background-color','#f5e8c8','important');" +
+                     "const style=document.createElement('style');" +
+                     "style.id='core-rules-library-bootstrap-style';" +
+                     "style.textContent=" + JsonSerializer.Serialize(bootstrapCss) + ";" +
+                     "root.appendChild(style);" +
+                     "})()";
+        _documentBootstrapScriptId = await webView.AddScriptToExecuteOnDocumentCreatedAsync(script);
     }
 
     private static void HardenWebView(CoreWebView2? webView)

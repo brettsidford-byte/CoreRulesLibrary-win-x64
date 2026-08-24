@@ -8,6 +8,10 @@ public partial class App : Application
 {
     public App()
     {
+        // WebView2 otherwise paints its default white surface before its WPF
+        // DefaultBackgroundColor property takes effect. Set the opaque parchment
+        // colour before any controller is created to prevent that first-frame flash.
+        Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "FFF5E8C8");
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
     }
