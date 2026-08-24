@@ -24,6 +24,12 @@ public partial class MainWindow : Window
         Spell
     }
 
+    private enum WebView2FontProfile
+    {
+        Korinna,
+        Ravenloft
+    }
+
     private readonly CoreRulesInstallationValidator _validator = new();
     private readonly CoreRulesInstallationLocator _locator = new();
     private readonly UserSettingsStore _settingsStore = new();
@@ -36,6 +42,7 @@ public partial class MainWindow : Window
     private readonly List<HtmlDocumentEntry> _characters = [];
     private readonly List<SpellRecord> _spells = [];
     private readonly List<string> _spellLoadErrors = [];
+    private static readonly Dictionary<WebView2FontProfile, string> WebView2FontCssCache = [];
     private UserSettingsStore.UserSettings _settings = new();
     private HtmlDocumentEntry? _selectedDocument;
     private OnlineResourceEntry? _selectedOnlineResource;
@@ -732,7 +739,7 @@ public partial class MainWindow : Window
         {
             html.Append("<base href=\"").Append(Encode(new Uri(helpTopic.PagePath).AbsoluteUri)).Append("\">");
         }
-        html.Append("<style>").Append(CreatePackagedFontCss()).Append(CreateThemedScrollbarCss());
+        html.Append("<style>").Append(CreatePackagedFontCss(WebView2FontProfile.Korinna)).Append(CreateThemedScrollbarCss());
         html.Append("html,body,body *{font-family:'Core Rules Korinna','ITC Korinna','Korinna',Georgia,serif;box-sizing:border-box}");
         html.Append("body{margin:22px;color:#17212b;background-color:#f5e8c8;background-image:")
             .Append(CreateParchmentBackgroundImage())
@@ -997,7 +1004,7 @@ public partial class MainWindow : Window
                 "font[size='+3'],font[size='+3'] *,font[size='6'],font[size='6'] *," +
                 "font[size='+4'],font[size='+4'] *,font[size='7'],font[size='7'] *{" +
                 "font-family:'Core Rules University Roman','University Roman Std','University Roman',serif!important;}" +
-                CreateExplicitFrizFontCss() +
+                CreateLegacyExplicitFontCss() +
                 CreateThemedScrollbarCss() +
                 "p.core-rules-body-paragraph{margin-top:0!important;margin-bottom:0!important;text-indent:1.5em!important;}" +
                 "p.core-rules-heading-paragraph{margin-top:1em!important;margin-bottom:0!important;text-indent:0!important;}" +
@@ -1174,7 +1181,10 @@ public partial class MainWindow : Window
     private async Task ApplyDocumentStyleAsync(CoreWebView2? webView)
     {
         if (webView is null) return;
-        var css = CreatePackagedFontCss() + CreateDocumentFontCss() +
+        var fontProfile = _selectedDocument?.Collection == HtmlDocumentCollection.Ravenloft
+            ? WebView2FontProfile.Ravenloft
+            : WebView2FontProfile.Korinna;
+        var css = CreatePackagedFontCss(fontProfile) + CreateDocumentFontCss() +
                   CreateDocumentSurfaceCss() +
                   CreateDocumentParagraphCss() +
                   CreateCharacterSheetCss() +
@@ -1190,7 +1200,7 @@ public partial class MainWindow : Window
                      "const style=document.createElement('style');" +
                      "style.id=id;style.textContent=" + encodedCss + ";" +
                      "(document.head||document.documentElement).appendChild(style);" +
-                     CreateExplicitFrizFontScript() +
+                     CreateExplicitWebView2FontScript() +
                      "const body=document.body;" +
                      "if(body){" +
                      "const text=(body.innerText||'').replace(/[\\s\\u00a0]/g,'');" +
@@ -1219,8 +1229,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string CreatePackagedFontCss()
+    private static string CreatePackagedFontCss(WebView2FontProfile profile)
     {
+        if (WebView2FontCssCache.TryGetValue(profile, out var cached)) return cached;
+
         var folder = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
         if (!Directory.Exists(folder)) return string.Empty;
 
@@ -1230,8 +1242,7 @@ public partial class MainWindow : Window
                                     path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
         {
             var name = Path.GetFileNameWithoutExtension(path);
-            var family = name.Contains("quadrat", StringComparison.OrdinalIgnoreCase) ? "Core Rules Quadrat Serial XBold" :
-                name.Contains("korinna", StringComparison.OrdinalIgnoreCase) ? "Core Rules Korinna" :
+            var family = name.Contains("korinna", StringComparison.OrdinalIgnoreCase) ? "Core Rules Korinna" :
                 name.Contains("honda", StringComparison.OrdinalIgnoreCase) ? "Core Rules Honda" :
                 name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
                 name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "Core Rules Friz Quadrata Bold" :
@@ -1239,6 +1250,10 @@ public partial class MainWindow : Window
                 name.Contains("university", StringComparison.OrdinalIgnoreCase) ? "Core Rules University Roman" :
                 name.Contains("antiqua", StringComparison.OrdinalIgnoreCase) ? "Core Rules Book Antiqua" : null;
             if (family is null) continue;
+            var required = family == "Core Rules Korinna" ||
+                           profile == WebView2FontProfile.Ravenloft &&
+                           family is "Core Rules Honda" or "Core Rules Friz Quadrata" or "Core Rules Friz Quadrata Bold";
+            if (!required) continue;
 
             var format = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "opentype" : "truetype";
             var mime = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "font/otf" : "font/ttf";
@@ -1250,7 +1265,9 @@ public partial class MainWindow : Window
                 .Append(";font-weight:").Append(weight).Append(";}");
         }
 
-        return css.ToString();
+        var generated = css.ToString();
+        WebView2FontCssCache[profile] = generated;
+        return generated;
     }
 
     private static string CreateLegacyFontCss()
@@ -1264,13 +1281,13 @@ public partial class MainWindow : Window
                                     path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
         {
             var name = Path.GetFileNameWithoutExtension(path);
-            var family = name.Contains("quadrat", StringComparison.OrdinalIgnoreCase)
-                ? "Core Rules Quadrat Serial XBold"
-                : name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
+            var family = name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
                          name.Contains("bold", StringComparison.OrdinalIgnoreCase)
                 ? "Core Rules Friz Quadrata Bold"
                 : name.Contains("friz", StringComparison.OrdinalIgnoreCase)
                 ? "Core Rules Friz Quadrata"
+                : name.Contains("quadrat-serial", StringComparison.OrdinalIgnoreCase)
+                ? "Core Rules Quadrat Serial XBold"
                 : name.Contains("university", StringComparison.OrdinalIgnoreCase)
                 ? "Core Rules University Roman"
                 : name.Contains("antiqua", StringComparison.OrdinalIgnoreCase)
@@ -1317,13 +1334,21 @@ public partial class MainWindow : Window
               $"{majorHeadings}{{font-family:'Core Rules Honda','Honda','ITC Honda','Core Rules Korinna',serif !important;font-weight:normal !important;}}"
             : "html,body,body *{font-family:'Core Rules Book Antiqua','Book Antiqua',Palatino,Georgia,serif !important;}" +
               $"{allAdndHeadings}{{font-family:'Core Rules University Roman','University Roman Std','University Roman',serif !important;font-weight:bold !important;}}";
-        return collectionCss + CreateExplicitFrizFontCss();
+        return collectionCss + CreateExplicitWebView2FontCss();
     }
 
-    private static string CreateExplicitFrizFontCss() =>
+    private static string CreateLegacyExplicitFontCss() =>
         ".core-rules-quadrat-xbold,.core-rules-quadrat-xbold *{" +
         "font-family:'QuadratSerial-Xbold','QuadratSerial','Core Rules Quadrat Serial XBold',serif!important;" +
         "font-weight:bold!important;}" +
+        ".core-rules-friz-bold,.core-rules-friz-bold *{" +
+        "font-family:'Core Rules Friz Quadrata Bold','Friz Quadrata Bold',serif!important;" +
+        "font-weight:bold!important;}" +
+        ".core-rules-friz-regular,.core-rules-friz-regular *{" +
+        "font-family:'Core Rules Friz Quadrata','Friz Quadrata',serif!important;" +
+        "font-weight:normal!important;}";
+
+    private static string CreateExplicitWebView2FontCss() =>
         ".core-rules-friz-bold,.core-rules-friz-bold *{" +
         "font-family:'Core Rules Friz Quadrata Bold','Friz Quadrata Bold',serif!important;" +
         "font-weight:bold!important;}" +
@@ -1359,11 +1384,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string CreateExplicitFrizFontScript() =>
+    private static string CreateExplicitWebView2FontScript() =>
         "for(const font of document.querySelectorAll('font[face]')){" +
         "const faces=(font.getAttribute('face')||'').split(',').map(value=>value.trim().replace(/^['\\\"]|['\\\"]$/g,''));" +
-        "if(faces.some(value=>['quadratserial-xbold','quadratserial','quadrat serial xbold'].includes(value.toLowerCase())))font.classList.add('core-rules-quadrat-xbold');" +
-        "else if(faces.some(value=>value.toLowerCase()==='friz quadrata bold'))font.classList.add('core-rules-friz-bold');" +
+        "if(faces.some(value=>value.toLowerCase()==='friz quadrata bold'))font.classList.add('core-rules-friz-bold');" +
         "else if(faces.some(value=>value.toLowerCase()==='friz quadrata'))font.classList.add('core-rules-friz-regular');}";
 
     private static string CreateThemedScrollbarCss() =>

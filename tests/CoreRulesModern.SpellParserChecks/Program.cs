@@ -1,6 +1,8 @@
 using System.Text;
+using System.Reflection;
 using CoreRulesModern.Models;
 using CoreRulesModern.Services;
+using CoreRulesModern.Views;
 
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 var encoding = Encoding.GetEncoding(1252);
@@ -39,6 +41,7 @@ try
 
     CheckSettingsStore(temporaryFolder);
     CheckDiceRollerStore(temporaryFolder);
+    CheckBrowserFontIsolation();
     CheckBrowserSecurityPolicy(temporaryFolder);
     CheckBookContentsResolver(temporaryFolder);
 
@@ -155,6 +158,24 @@ static void CheckDiceRollerStore(string temporaryFolder)
     Require(!string.IsNullOrWhiteSpace(recovered.LoadWarning), "Dice-pool recovery did not report a warning.");
     Require(Directory.EnumerateFiles(diceFolder, "dice-pools.corrupt-*.json").Any(),
         "The damaged dice-pool file was not preserved.");
+}
+
+static void CheckBrowserFontIsolation()
+{
+    var windowType = typeof(MainWindow);
+    var profileType = windowType.GetNestedType("WebView2FontProfile", BindingFlags.NonPublic)!;
+    var packagedMethod = windowType.GetMethod("CreatePackagedFontCss", BindingFlags.Static | BindingFlags.NonPublic)!;
+    var legacyMethod = windowType.GetMethod("CreateLegacyFontCss", BindingFlags.Static | BindingFlags.NonPublic)!;
+    var ravenloftProfile = Enum.Parse(profileType, "Ravenloft");
+    var ravenloftCss = (string)packagedMethod.Invoke(null, [ravenloftProfile])!;
+    var legacyCss = (string)legacyMethod.Invoke(null, null)!;
+
+    Require(!ravenloftCss.Contains("Core Rules Quadrat Serial XBold", StringComparison.OrdinalIgnoreCase),
+        "The WebView2 Ravenloft font profile contains the WebView1-only Quadrat font.");
+    Require(legacyCss.Contains("Core Rules Quadrat Serial XBold", StringComparison.OrdinalIgnoreCase),
+        "The WebView1 legacy font profile lost Quadrat support.");
+    Require(legacyCss.Contains("Core Rules Friz Quadrata Bold", StringComparison.OrdinalIgnoreCase),
+        "The WebView1 legacy profile misclassified Friz Quadrata as Quadrat Serial.");
 }
 
 static void CheckBrowserSecurityPolicy(string temporaryFolder)
