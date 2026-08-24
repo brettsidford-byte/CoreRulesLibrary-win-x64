@@ -1190,7 +1190,8 @@ public partial class MainWindow : Window
                                     path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
         {
             var name = Path.GetFileNameWithoutExtension(path);
-            var family = name.Contains("korinna", StringComparison.OrdinalIgnoreCase) ? "Core Rules Korinna" :
+            var family = name.Contains("quadrat", StringComparison.OrdinalIgnoreCase) ? "Core Rules Quadrat Serial XBold" :
+                name.Contains("korinna", StringComparison.OrdinalIgnoreCase) ? "Core Rules Korinna" :
                 name.Contains("honda", StringComparison.OrdinalIgnoreCase) ? "Core Rules Honda" :
                 name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
                 name.Contains("bold", StringComparison.OrdinalIgnoreCase) ? "Core Rules Friz Quadrata Bold" :
@@ -1223,7 +1224,9 @@ public partial class MainWindow : Window
                                     path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)))
         {
             var name = Path.GetFileNameWithoutExtension(path);
-            var family = name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
+            var family = name.Contains("quadrat", StringComparison.OrdinalIgnoreCase)
+                ? "Core Rules Quadrat Serial XBold"
+                : name.Contains("friz", StringComparison.OrdinalIgnoreCase) &&
                          name.Contains("bold", StringComparison.OrdinalIgnoreCase)
                 ? "Core Rules Friz Quadrata Bold"
                 : name.Contains("friz", StringComparison.OrdinalIgnoreCase)
@@ -1278,6 +1281,9 @@ public partial class MainWindow : Window
     }
 
     private static string CreateExplicitFrizFontCss() =>
+        ".core-rules-quadrat-xbold,.core-rules-quadrat-xbold *{" +
+        "font-family:'Core Rules Quadrat Serial XBold','QuadratSerial-Xbold','QuadratSerial',serif!important;" +
+        "font-weight:bold!important;}" +
         ".core-rules-friz-bold,.core-rules-friz-bold *{" +
         "font-family:'Core Rules Friz Quadrata Bold','Friz Quadrata Bold',serif!important;" +
         "font-weight:bold!important;}" +
@@ -1294,7 +1300,12 @@ public partial class MainWindow : Window
             dynamic font = fonts.item(index);
             string face = Convert.ToString((object?)font.getAttribute("face")) ?? string.Empty;
             var faces = face.Split(',').Select(value => value.Trim().Trim('\'', '"'));
-            var className = faces.Any(value => value.Equals("Friz Quadrata Bold", StringComparison.OrdinalIgnoreCase))
+            var className = faces.Any(value =>
+                    value.Equals("QuadratSerial-Xbold", StringComparison.OrdinalIgnoreCase) ||
+                    value.Equals("QuadratSerial", StringComparison.OrdinalIgnoreCase) ||
+                    value.Equals("Quadrat Serial XBold", StringComparison.OrdinalIgnoreCase))
+                ? "core-rules-quadrat-xbold"
+                : faces.Any(value => value.Equals("Friz Quadrata Bold", StringComparison.OrdinalIgnoreCase))
                 ? "core-rules-friz-bold"
                 : faces.Any(value => value.Equals("Friz Quadrata", StringComparison.OrdinalIgnoreCase))
                     ? "core-rules-friz-regular"
@@ -1311,7 +1322,8 @@ public partial class MainWindow : Window
     private static string CreateExplicitFrizFontScript() =>
         "for(const font of document.querySelectorAll('font[face]')){" +
         "const faces=(font.getAttribute('face')||'').split(',').map(value=>value.trim().replace(/^['\\\"]|['\\\"]$/g,''));" +
-        "if(faces.some(value=>value.toLowerCase()==='friz quadrata bold'))font.classList.add('core-rules-friz-bold');" +
+        "if(faces.some(value=>['quadratserial-xbold','quadratserial','quadrat serial xbold'].includes(value.toLowerCase())))font.classList.add('core-rules-quadrat-xbold');" +
+        "else if(faces.some(value=>value.toLowerCase()==='friz quadrata bold'))font.classList.add('core-rules-friz-bold');" +
         "else if(faces.some(value=>value.toLowerCase()==='friz quadrata'))font.classList.add('core-rules-friz-regular');}";
 
     private static string CreateThemedScrollbarCss() =>
