@@ -588,7 +588,7 @@ public partial class MainWindow : Window
             if (UseLegacyDocumentBrowser)
             {
                 DocumentBrowser.Visibility = Visibility.Collapsed;
-                LegacyDocumentBrowser.Visibility = Visibility.Visible;
+                LegacyDocumentBrowser.Visibility = Visibility.Hidden;
                 LegacyDocumentBrowser.Navigate(address);
                 FooterStatus.Text = $"Displaying {document.Title} · WebView1 · read-only";
             }
@@ -890,6 +890,7 @@ public partial class MainWindow : Window
         UpdateSequenceNavigationButtons();
         ApplyLegacyParagraphStyle(LegacyDocumentBrowser);
         ApplyDocumentScale();
+        LegacyDocumentBrowser.Visibility = Visibility.Visible;
         if (e.Uri is { IsFile: true } currentUri)
         {
             TrackCurrentPage(currentUri.LocalPath, ReadLegacyPageTitle());
@@ -901,7 +902,11 @@ public partial class MainWindow : Window
         object sender,
         System.Windows.Navigation.NavigatingCancelEventArgs e)
     {
-        if (BrowserSecurityPolicy.IsLocalPageWithin(e.Uri, [_settings.LibraryPath])) return;
+        if (BrowserSecurityPolicy.IsLocalPageWithin(e.Uri, [_settings.LibraryPath]))
+        {
+            LegacyDocumentBrowser.Visibility = Visibility.Hidden;
+            return;
+        }
         e.Cancel = true;
         FooterStatus.Text = "Blocked navigation outside the selected local library.";
     }
@@ -1282,7 +1287,7 @@ public partial class MainWindow : Window
 
     private static string CreateExplicitFrizFontCss() =>
         ".core-rules-quadrat-xbold,.core-rules-quadrat-xbold *{" +
-        "font-family:'Core Rules Quadrat Serial XBold','QuadratSerial-Xbold','QuadratSerial',serif!important;" +
+        "font-family:'QuadratSerial-Xbold','QuadratSerial','Core Rules Quadrat Serial XBold',serif!important;" +
         "font-weight:bold!important;}" +
         ".core-rules-friz-bold,.core-rules-friz-bold *{" +
         "font-family:'Core Rules Friz Quadrata Bold','Friz Quadrata Bold',serif!important;" +
