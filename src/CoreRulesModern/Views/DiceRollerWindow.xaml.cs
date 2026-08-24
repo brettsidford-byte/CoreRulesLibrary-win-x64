@@ -580,9 +580,9 @@ public partial class DiceRollerWindow : Window
             Source = new BitmapImage(faceUri), Width = size, Height = size, Stretch = Stretch.Uniform, Opacity = 1, IsHitTestVisible = false,
             Effect = new DropShadowEffect { Color = die == _selectedDie ? Color.FromRgb(224, 175, 65) : Colors.Black, BlurRadius = die == _selectedDie ? 18 : 11, ShadowDepth = die == _selectedDie ? 0 : 6, Opacity = 0.95 }
         };
-        var numeralTop = die.Sides switch { 4 => .37, 8 => .25, 10 => .24, 12 => .30, 20 => .38, 100 => .35, _ => .40 };
+        var numeralTop = die.Sides switch { 4 => .395, 6 => .365, 8 => .26, 10 => .215, 12 => .345, 20 => .42, 100 => .35, _ => .40 };
         var numeralSize = die.Sides switch { 4 => .35, 6 => .35, 100 => .22, _ => .285 };
-        var numeralX = die.Sides == 12 ? size * -.035 : 0;
+        var numeralX = size * (die.Sides switch { 4 => -.025, 6 => .02, 8 => .02, 10 => -.02, 12 => .015, 20 => -.025, 100 => -.025, _ => 0 });
         var number = new TextBlock { Text = DisplayNumber(die), FontFamily = DiceNumeralFont, FontSize = size * numeralSize, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, size * numeralTop, 0, 0), RenderTransform = new TranslateTransform(numeralX, 0), Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.55 }, IsHitTestVisible = false };
         var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, FontSize = Math.Max(11, size * .095), FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = size, Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 1 }, IsHitTestVisible = false };
         grid.Children.Add(colourLayer); grid.Children.Add(face);
