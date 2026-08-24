@@ -580,14 +580,26 @@ public partial class DiceRollerWindow : Window
             Source = new BitmapImage(faceUri), Width = size, Height = size, Stretch = Stretch.Uniform, Opacity = 1, IsHitTestVisible = false,
             Effect = new DropShadowEffect { Color = die == _selectedDie ? Color.FromRgb(224, 175, 65) : Colors.Black, BlurRadius = die == _selectedDie ? 18 : 11, ShadowDepth = die == _selectedDie ? 0 : 6, Opacity = 0.95 }
         };
-        var numeralTop = die.Sides switch { 4 => .395, 6 => .365, 8 => .26, 10 => .215, 12 => .345, 20 => .42, 100 => .35, _ => .40 };
+        var compact = size <= 90;
+        var numeralCentre = (die.Sides, compact) switch
+        {
+            (4, false) => new Point(.475, .54), (4, true) => new Point(.475, .52),
+            (6, false) => new Point(.52, .50), (6, true) => new Point(.52, .50),
+            (8, false) => new Point(.52, .31), (8, true) => new Point(.52, .35),
+            (10, false) => new Point(.48, .29), (10, true) => new Point(.48, .35),
+            (12, false) => new Point(.515, .46), (12, true) => new Point(.515, .46),
+            (20, false) => new Point(.475, .47), (20, true) => new Point(.475, .48),
+            (100, false) => new Point(.475, .35), (100, true) => new Point(.475, .39),
+            _ => new Point(.5, .5)
+        };
         var numeralSize = die.Sides switch { 4 => .35, 6 => .35, 100 => .22, _ => .285 };
-        var numeralX = size * (die.Sides switch { 4 => -.025, 6 => .02, 8 => .02, 10 => -.02, 12 => .015, 20 => -.025, 100 => -.025, _ => 0 });
-        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = DiceNumeralFont, FontSize = size * numeralSize, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, size * numeralTop, 0, 0), RenderTransform = new TranslateTransform(numeralX, 0), Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.55 }, IsHitTestVisible = false };
+        var number = new TextBlock { Text = DisplayNumber(die), FontFamily = DiceNumeralFont, FontSize = size * numeralSize, FontWeight = FontWeights.Bold, Foreground = ContrastBrush(die.ColourHex), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center, Effect = new DropShadowEffect { Color = Colors.White, BlurRadius = 2, ShadowDepth = 0, Opacity = 0.55 }, IsHitTestVisible = false };
+        var numberHost = new Grid { Width = size * .62, Height = size * .38, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(size * (numeralCentre.X - .31), size * (numeralCentre.Y - .19), 0, 0), IsHitTestVisible = false };
+        numberHost.Children.Add(number);
         var label = new TextBlock { Text = string.IsNullOrWhiteSpace(die.Label) ? $"d{die.Sides}" : $"d{die.Sides} · {die.Label}", Foreground = Brushes.White, FontSize = Math.Max(11, size * .095), FontWeight = FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = size, Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 3, ShadowDepth = 1, Opacity = 1 }, IsHitTestVisible = false };
         grid.Children.Add(colourLayer); grid.Children.Add(face);
         if (die.Quantity > 1) grid.Children.Add(new TextBlock { Text = $"{die.Quantity}×", FontFamily = DiceNumeralFont, FontSize = size * .19, FontWeight = FontWeights.Bold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(2, 4, 0, 0), Effect = new DropShadowEffect { Color = Colors.Black, BlurRadius = 4, ShadowDepth = 2, Opacity = 1 }, IsHitTestVisible = false });
-        if (showNumber) grid.Children.Add(number);
+        if (showNumber) grid.Children.Add(numberHost);
         grid.Children.Add(label);
         return grid;
     }
