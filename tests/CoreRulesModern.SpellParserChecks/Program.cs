@@ -38,10 +38,11 @@ try
     }
 
     CheckSettingsStore(temporaryFolder);
+    CheckDiceRollerStore(temporaryFolder);
     CheckBrowserSecurityPolicy(temporaryFolder);
     CheckBookContentsResolver(temporaryFolder);
 
-    Console.WriteLine("Parser, settings reliability and browser security checks passed.");
+    Console.WriteLine("Parser, settings, dice persistence and browser security checks passed.");
 }
 finally
 {
@@ -132,6 +133,28 @@ static void CheckSettingsStore(string temporaryFolder)
     var recovered = store.Load();
     Require(recovered.Scale == 150 && recovered.RecentPageLimit == 30,
         "Corrupt settings did not recover from the last known-good backup.");
+}
+
+static void CheckDiceRollerStore(string temporaryFolder)
+{
+    var diceFolder = Path.Combine(temporaryFolder, "dice");
+    var store = new DiceRollerStore(diceFolder);
+    var pools = new List<DicePool>
+    {
+        new() { Name = "Saved pool", Mode = DicePoolMode.Generic, Dice = [new DieSpec { Sides = 12 }] }
+    };
+
+    Require(store.SavePools(pools), "Dice pools could not be saved.");
+    Require(store.LoadPools().Single().Name == "Saved pool", "Dice pools did not survive a save/load round trip.");
+
+    pools[0].Name = "Backup pool";
+    Require(store.SavePools(pools), "The second dice-pool save failed.");
+    File.WriteAllText(Path.Combine(diceFolder, "dice-pools.json"), "not valid json");
+    var recovered = new DiceRollerStore(diceFolder);
+    Require(recovered.LoadPools().Single().Name == "Saved pool", "The dice-pool backup was not recovered.");
+    Require(!string.IsNullOrWhiteSpace(recovered.LoadWarning), "Dice-pool recovery did not report a warning.");
+    Require(Directory.EnumerateFiles(diceFolder, "dice-pools.corrupt-*.json").Any(),
+        "The damaged dice-pool file was not preserved.");
 }
 
 static void CheckBrowserSecurityPolicy(string temporaryFolder)

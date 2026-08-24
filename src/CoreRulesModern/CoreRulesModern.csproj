@@ -7,12 +7,12 @@
     <RootNamespace>CoreRulesModern</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\CoreRulesLibrary.ico</ApplicationIcon>
-    <Version>0.9.62</Version>
+    <Version>1.0.0</Version>
     <Authors>Core Rules Modern contributors</Authors>
     <Description>Modern Windows viewer for Core Rules WebHelp books and exported HTML character sheets.</Description>
   </PropertyGroup>
   <ItemGroup>
-    <Resource Include="Assets\DiceRoller\*.png" />
+    <Resource Include="Assets\DiceRoller\FeltRed.png;Assets\DiceRoller\PanelHeaderCropped.png;Assets\DiceRoller\Parchment.png;Assets\DiceRoller\ParchmentCard9Slice.png;Assets\DiceRoller\ParchmentTitlePlaqueCropped.png;Assets\DiceRoller\RollButtonCropped.png;Assets\DiceRoller\TraySurround9Slice.png;Assets\DiceRoller\WoodDark.png;Assets\DiceRoller\DieFace-*.png" />
     <Content Include="Assets\Fonts\*.otf;Assets\Fonts\*.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -22,7 +22,7 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
-    <Content Include="Assets\WoodTexture.jpg;Assets\ParchmentTexture.jpg">
+    <Content Include="Assets\ParchmentTexture.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>

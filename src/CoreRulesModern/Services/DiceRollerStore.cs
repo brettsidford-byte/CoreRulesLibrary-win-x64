@@ -8,35 +8,65 @@ namespace CoreRulesModern.Services;
 
 public sealed class DiceRollerStore
 {
-    private readonly string _folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CoreRulesModern", "DiceRoller");
+    private const long MaximumHistoryBytes = 2 * 1024 * 1024;
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private readonly string _folder;
     private string PoolsPath => Path.Combine(_folder, "dice-pools.json");
+    private string PoolsBackupPath => PoolsPath + ".bak";
     private string InterfaceScalePath => Path.Combine(_folder, "interface-scale.txt");
     public string HistoryPath => Path.Combine(_folder, "DiceHistory.txt");
+    public string? LoadWarning { get; private set; }
+    public string? SaveWarning { get; private set; }
+    public event Action<string>? PersistenceWarning;
+
+    public DiceRollerStore(string? folder = null)
+    {
+        _folder = folder ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "CoreRulesModern",
+            "DiceRoller");
+    }
 
     public List<DicePool> LoadPools()
     {
         Directory.CreateDirectory(_folder);
-        try
+        if (!File.Exists(PoolsPath)) return CreateDefaults();
+
+        var pools = TryLoadPools(PoolsPath);
+        if (pools is not null)
         {
-            if (File.Exists(PoolsPath))
-            {
-                var pools = JsonSerializer.Deserialize<List<DicePool>>(File.ReadAllText(PoolsPath)) ?? CreateDefaults();
-                MigrateAttackSettings(pools);
-                return pools;
-            }
+            MigrateAttackSettings(pools);
+            return pools;
         }
-        catch { }
+
+        PreserveCorruptPoolsFile();
+        pools = TryLoadPools(PoolsBackupPath);
+        if (pools is not null)
+        {
+            LoadWarning = "The saved dice pools were damaged. The previous backup was recovered and the damaged file was preserved for diagnosis.";
+            MigrateAttackSettings(pools);
+            return pools;
+        }
+
+        LoadWarning = "The saved dice pools and their backup could not be read. Default pools have been loaded; the damaged file was preserved for diagnosis.";
         return CreateDefaults();
     }
 
-    public void SavePools(IEnumerable<DicePool> pools)
+    public bool SavePools(IEnumerable<DicePool> pools)
     {
+        SaveWarning = null;
         try
         {
             Directory.CreateDirectory(_folder);
-            File.WriteAllText(PoolsPath, JsonSerializer.Serialize(pools, new JsonSerializerOptions { WriteIndented = true }));
+            WriteAtomic(PoolsPath, JsonSerializer.Serialize(pools, JsonOptions), PoolsBackupPath);
+            return true;
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            SaveWarning = $"Dice pools could not be saved. Your previous saved copy has been retained.\n\n{exception.Message}";
+            PersistenceWarning?.Invoke(SaveWarning);
+            return false;
+        }
     }
 
     public int Roll(int sides) => RandomNumberGenerator.GetInt32(1, Math.Max(2, sides) + 1);
@@ -51,10 +81,15 @@ public sealed class DiceRollerStore
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { return "Auto"; }
     }
 
-    public void SaveInterfaceScale(string value)
+    public bool SaveInterfaceScale(string value)
     {
-        try { Directory.CreateDirectory(_folder); File.WriteAllText(InterfaceScalePath, value); }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+        try
+        {
+            Directory.CreateDirectory(_folder);
+            WriteAtomic(InterfaceScalePath, value);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { return false; }
     }
 
     public void AppendHistory(DiceRollRecord record)
@@ -70,6 +105,7 @@ public sealed class DiceRollerStore
             sb.AppendLine($"Result: {record.ResultText}");
             sb.AppendLine();
             File.AppendAllText(HistoryPath, sb.ToString());
+            TrimHistoryIfNeeded();
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
     }
@@ -121,6 +157,60 @@ public sealed class DiceRollerStore
         var result = lines.FirstOrDefault(line => line.StartsWith("Result:"))?.Replace("Result:", string.Empty).Trim() ?? string.Empty;
         if (result.Length > 72) result = result[..69] + "…";
         return $"{timestamp}  {pool}\n{result}".Trim();
+    }
+
+    private static List<DicePool>? TryLoadPools(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            var pools = JsonSerializer.Deserialize<List<DicePool>>(File.ReadAllText(path));
+            return pools is { Count: > 0 } ? pools : null;
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private void PreserveCorruptPoolsFile()
+    {
+        try
+        {
+            if (!File.Exists(PoolsPath)) return;
+            var preservedPath = Path.Combine(_folder, $"dice-pools.corrupt-{DateTime.Now:yyyyMMdd-HHmmss}.json");
+            File.Copy(PoolsPath, preservedPath, overwrite: false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+    }
+
+    private static void WriteAtomic(string path, string contents, string? backupPath = null)
+    {
+        var temporaryPath = path + ".tmp";
+        File.WriteAllText(temporaryPath, contents);
+        if (File.Exists(path))
+            File.Replace(temporaryPath, path, backupPath, ignoreMetadataErrors: true);
+        else
+            File.Move(temporaryPath, path);
+    }
+
+    private void TrimHistoryIfNeeded()
+    {
+        var file = new FileInfo(HistoryPath);
+        if (!file.Exists || file.Length <= MaximumHistoryBytes) return;
+
+        var text = File.ReadAllText(HistoryPath);
+        var entries = text.Split([Environment.NewLine + Environment.NewLine], StringSplitOptions.RemoveEmptyEntries);
+        var kept = new Stack<string>();
+        var bytes = 0;
+        for (var index = entries.Length - 1; index >= 0; index--)
+        {
+            var entryBytes = Encoding.UTF8.GetByteCount(entries[index]) + Encoding.UTF8.GetByteCount(Environment.NewLine) * 2;
+            if (bytes + entryBytes > MaximumHistoryBytes / 2 && kept.Count > 0) break;
+            kept.Push(entries[index]);
+            bytes += entryBytes;
+        }
+        WriteAtomic(HistoryPath, string.Join(Environment.NewLine + Environment.NewLine, kept) + Environment.NewLine + Environment.NewLine);
     }
 
     private static List<DicePool> CreateDefaults() =>

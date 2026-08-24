@@ -5,6 +5,7 @@ namespace CoreRulesModern.Services;
 
 public static class CrashLog
 {
+    private const long MaximumLogBytes = 1024 * 1024;
     public static string LogPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "CoreRulesModern",
@@ -15,6 +16,7 @@ public static class CrashLog
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+            RotateIfNeeded();
             var entry = new StringBuilder()
                 .AppendLine($"[{DateTimeOffset.Now:O}] {source}")
                 .AppendLine(exception.ToString())
@@ -25,5 +27,13 @@ public static class CrashLog
         {
             // Diagnostics must never cause a second application failure.
         }
+    }
+
+    private static void RotateIfNeeded()
+    {
+        var file = new FileInfo(LogPath);
+        if (!file.Exists || file.Length < MaximumLogBytes) return;
+        var previousPath = LogPath + ".1";
+        File.Move(LogPath, previousPath, overwrite: true);
     }
 }

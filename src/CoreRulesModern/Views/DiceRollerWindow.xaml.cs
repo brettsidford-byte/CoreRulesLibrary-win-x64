@@ -35,6 +35,8 @@ public partial class DiceRollerWindow : Window
     public DiceRollerWindow()
     {
         InitializeComponent();
+        _store.PersistenceWarning += message =>
+            MessageBox.Show(this, message, "Dice pools not saved", MessageBoxButton.OK, MessageBoxImage.Warning);
         _pools = _store.LoadPools();
         _interfaceScalePreference = _store.LoadInterfaceScale();
         BuildColourButtons();
@@ -42,7 +44,12 @@ public partial class DiceRollerWindow : Window
         RefreshPoolList();
         if (_pools.Count > 0) PoolList.SelectedIndex = 0;
         SelectScalePreference();
-        Loaded += (_, _) => ApplyInterfaceScale();
+        Loaded += (_, _) =>
+        {
+            ApplyInterfaceScale();
+            if (!string.IsNullOrWhiteSpace(_store.LoadWarning))
+                MessageBox.Show(this, _store.LoadWarning, "Dice pool recovery", MessageBoxButton.OK, MessageBoxImage.Warning);
+        };
         SizeChanged += (_, _) => { if (_interfaceScalePreference == "Auto" && IsLoaded) ApplyInterfaceScale(); };
         DpiChanged += (_, _) => { if (_interfaceScalePreference == "Auto" && IsLoaded) ApplyInterfaceScale(); };
         Closed += (_, _) => _store.SavePools(_pools);
