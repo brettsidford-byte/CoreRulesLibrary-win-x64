@@ -563,9 +563,10 @@ public partial class DiceRollerWindow : Window
             foreach (var die in _rollingBatch) TrayPanel.Children.Add(CreateDieVisual(die, size: 82));
             return;
         }
+        var trayDieSize = _pool.Dice.Count switch { <= 5 => 166, <= 8 => 142, <= 14 => 112, _ => 82 };
         foreach (var die in _pool.Dice)
         {
-            var visual = CreateDieVisual(die);
+            var visual = CreateDieVisual(die, size: trayDieSize);
             visual.MouseLeftButtonDown += (_, eventArgs) => { _selectedDie = die; LoadDieControls(); RenderTray(); eventArgs.Handled = true; };
             TrayPanel.Children.Add(visual);
         }
