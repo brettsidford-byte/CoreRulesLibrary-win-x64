@@ -583,12 +583,12 @@ public partial class DiceRollerWindow : Window
         var compact = size <= 90;
         var numeralCentre = (die.Sides, compact) switch
         {
-            (4, false) => new Point(.475, .54), (4, true) => new Point(.475, .52),
+            (4, false) => new Point(.475, .54), (4, true) => new Point(.505, .58),
             (6, false) => new Point(.52, .50), (6, true) => new Point(.52, .50),
-            (8, false) => new Point(.52, .31), (8, true) => new Point(.52, .35),
-            (10, false) => new Point(.48, .29), (10, true) => new Point(.48, .35),
-            (12, false) => new Point(.515, .46), (12, true) => new Point(.515, .46),
-            (20, false) => new Point(.475, .47), (20, true) => new Point(.475, .48),
+            (8, false) => new Point(.52, .37), (8, true) => new Point(.52, .41),
+            (10, false) => new Point(.48, .32), (10, true) => new Point(.50, .38),
+            (12, false) => new Point(.515, .46), (12, true) => new Point(.535, .49),
+            (20, false) => new Point(.475, .53), (20, true) => new Point(.475, .54),
             (100, false) => new Point(.475, .35), (100, true) => new Point(.475, .39),
             _ => new Point(.5, .5)
         };
