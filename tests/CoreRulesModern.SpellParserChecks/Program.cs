@@ -32,7 +32,7 @@ try
     var collections = new SpellPartDatabaseParser().Parse(partsPath);
     Require(collections.TryGetValue("Chronomancy", out var collectionSpells),
         "The embedded spell collection was not discovered.");
-    Require(collectionSpells.SequenceEqual(["Test Spell"]),
+    Require(collectionSpells is not null && collectionSpells.SequenceEqual(["Test Spell"]),
         "The embedded spell collection membership was not read.");
 
     var suppliedPartsPath = Environment.GetEnvironmentVariable("CORE_RULES_PARTS_TEST_PATH");
