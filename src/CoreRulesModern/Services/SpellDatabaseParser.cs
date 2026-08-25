@@ -56,6 +56,49 @@ public sealed class SpellDatabaseParser
         }
     }
 
+    internal static IReadOnlyList<SpellRecord> ParseEmbeddedArray(
+        BinaryReader reader,
+        SpellDatabaseKind databaseKind,
+        ushort? knownClassReference = null)
+    {
+        var stream = reader.BaseStream;
+        var count = ReadCount(reader, "embedded spell-array count");
+        if (count is 0 or > MaximumRecords)
+        {
+            throw FormatError(stream, $"The embedded spell array has an invalid size ({count:N0}).");
+        }
+
+        var spells = new List<SpellRecord>(checked((int)count));
+        for (var index = 0; index < count; index++)
+        {
+            var objectTag = reader.ReadUInt16();
+            if (index == 0 && objectTag == NewClassTag)
+            {
+                var schema = reader.ReadUInt16();
+                var runtimeClass = ReadClassName(reader);
+                if (schema != SupportedSchema || runtimeClass != "CSpellsOb")
+                {
+                    throw FormatError(stream, $"Unsupported embedded spell schema {schema} ({runtimeClass}).");
+                }
+            }
+            else if (index == 0)
+            {
+                if (knownClassReference is null || objectTag != knownClassReference || (objectTag & 0x8000) == 0)
+                {
+                    throw FormatError(stream, $"Unexpected embedded spell reference tag 0x{objectTag:X4}.");
+                }
+            }
+            else if (objectTag != (knownClassReference ?? SpellClassReferenceTag))
+            {
+                throw FormatError(stream, $"Expected an embedded CSpellsOb reference tag, found 0x{objectTag:X4}.");
+            }
+
+            spells.Add(ReadSpell(reader, databaseKind));
+        }
+
+        return spells;
+    }
+
     private static SpellDatabase Parse(
         BinaryReader reader,
         string path,

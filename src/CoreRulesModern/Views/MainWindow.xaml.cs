@@ -222,6 +222,7 @@ public partial class MainWindow : Window
         }
 
         LoadLibrary(status.RootPath);
+        InitialiseSpellFilters();
         SaveSettings();
         RefreshNavigation();
     }
@@ -247,7 +248,56 @@ public partial class MainWindow : Window
             _spellHelpTopics.Load(root);
             LoadSpellDatabase(Path.Combine(root, "Database", "Spells.dat"), SpellDatabaseKind.Core);
             LoadSpellDatabase(Path.Combine(root, "UserDbas", "SpellsU.dat"), SpellDatabaseKind.User);
+            ApplyUserSpellCollections(Path.Combine(root, "UserDbas", "PartsU.dat"));
             _settings = _settings with { LibraryPath = Path.GetFullPath(root) };
+        }
+    }
+
+    private void ApplyUserSpellCollections(string path)
+    {
+        if (!File.Exists(path)) return;
+
+        try
+        {
+            var collections = new SpellPartDatabaseParser().Parse(path);
+            if (collections.Count == 0) return;
+
+            var categoriesBySpell = new Dictionary<string, List<string>>(StringComparer.CurrentCultureIgnoreCase);
+            foreach (var (category, spellNames) in collections)
+            {
+                foreach (var spellName in spellNames)
+                {
+                    if (!categoriesBySpell.TryGetValue(spellName, out var categories))
+                    {
+                        categories = [];
+                        categoriesBySpell.Add(spellName, categories);
+                    }
+
+                    if (!categories.Contains(category, StringComparer.CurrentCultureIgnoreCase))
+                    {
+                        categories.Add(category);
+                    }
+                }
+            }
+
+            for (var index = 0; index < _spells.Count; index++)
+            {
+                var spell = _spells[index];
+                if (spell.DatabaseKind != SpellDatabaseKind.User ||
+                    !categoriesBySpell.TryGetValue(spell.Name, out var categories)) continue;
+
+                _spells[index] = spell with
+                {
+                    Schools = spell.Schools
+                        .Concat(categories)
+                        .Distinct(StringComparer.CurrentCultureIgnoreCase)
+                        .ToArray()
+                };
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            _spellLoadErrors.Add($"{Path.GetFileName(path)}: {exception.Message}");
         }
     }
 

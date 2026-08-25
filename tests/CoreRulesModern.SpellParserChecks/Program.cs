@@ -27,6 +27,24 @@ try
     Require(spell.Schools.SequenceEqual(["Alteration", "Shadow"]), "Schools were not read.");
     Require(spell.Spheres.SequenceEqual(["All"]), "Spheres were not read.");
 
+    var partsPath = Path.Combine(temporaryFolder, "PartsU.dat");
+    WritePartFixture(partsPath);
+    var collections = new SpellPartDatabaseParser().Parse(partsPath);
+    Require(collections.TryGetValue("Chronomancy", out var collectionSpells),
+        "The embedded spell collection was not discovered.");
+    Require(collectionSpells.SequenceEqual(["Test Spell"]),
+        "The embedded spell collection membership was not read.");
+
+    var suppliedPartsPath = Environment.GetEnvironmentVariable("CORE_RULES_PARTS_TEST_PATH");
+    if (!string.IsNullOrWhiteSpace(suppliedPartsPath))
+    {
+        var suppliedCollections = new SpellPartDatabaseParser().Parse(suppliedPartsPath);
+        Require(suppliedCollections.ContainsKey("Amethyts (Death)"),
+            "The supplied PartsU.dat did not expose Amethyts (Death).");
+        Require(suppliedCollections.ContainsKey("Chronomancy"),
+            "The supplied PartsU.dat did not expose Chronomancy.");
+    }
+
     var invalidPath = Path.Combine(temporaryFolder, "Invalid.dat");
     WriteFixture(invalidPath, invalidBoolean: true);
     try
@@ -82,6 +100,46 @@ void WriteFixture(string path, bool invalidBoolean)
     WriteArchiveString(writer, "Moderate visual");
     WriteArchiveString(writer, "+3");
     writer.Write(0u); // no original help-topic identifier
+    WriteArchiveString(writer, "A test description.");
+    writer.Write((ushort)2);
+    WriteArchiveString(writer, "Alteration");
+    WriteArchiveString(writer, "Shadow");
+    writer.Write((ushort)1);
+    WriteArchiveString(writer, "All");
+}
+
+void WritePartFixture(string path)
+{
+    using var stream = File.Create(path);
+    using var writer = new BinaryWriter(stream, encoding);
+    writer.Write((ushort)0x8001);  // CPart class reference
+    WriteArchiveString(writer, "Chronomancy");
+    writer.Write(new byte[64]);
+    WriteArchiveString(writer, "Chronomancy");
+    writer.Write(new byte[64]);
+    writer.Write((ushort)1);       // one embedded spell
+    writer.Write((ushort)0xffff);  // new runtime class
+    writer.Write((ushort)88);      // CSpellsOb schema
+    writer.Write((ushort)9);
+    writer.Write(encoding.GetBytes("CSpellsOb"));
+
+    WriteArchiveString(writer, "Test Spell");
+    writer.Write(0u);
+    writer.Write(1u);
+    writer.Write(1u);
+    writer.Write(0u);
+    writer.Write(3u);
+    WriteArchiveString(writer, "1 creature");
+    WriteArchiveString(writer, "3");
+    WriteArchiveString(writer, "V, S, M");
+    WriteArchiveString(writer, "");
+    WriteArchiveString(writer, "1 round/level");
+    WriteArchiveString(writer, "None");
+    WriteArchiveString(writer, "30 yards");
+    WriteArchiveString(writer, "Neg.");
+    WriteArchiveString(writer, "Moderate visual");
+    WriteArchiveString(writer, "+3");
+    writer.Write(0u);
     WriteArchiveString(writer, "A test description.");
     writer.Write((ushort)2);
     WriteArchiveString(writer, "Alteration");
